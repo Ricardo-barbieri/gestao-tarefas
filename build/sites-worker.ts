@@ -1,9 +1,11 @@
+import {processWebhooks} from '../lib/webhooks';
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 export default {
-  fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+  scheduled(_event:ScheduledController, env:Cloudflare.Env, ctx:ExecutionContext){if(env.DB)ctx.waitUntil(processWebhooks(env.DB));},
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.
@@ -23,6 +25,8 @@ export default {
         },
       };
     }
-    return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    const response=await runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    if(response.headers.get('X-Vamo-Process-Webhooks')==='1'&&env.DB)ctx.waitUntil(processWebhooks(env.DB).catch(()=>{}));
+    return response;
   },
 };
