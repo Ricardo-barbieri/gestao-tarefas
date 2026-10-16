@@ -1,7 +1,7 @@
 import {env} from 'cloudflare:workers';
 import {headers} from 'next/headers';
 import {hash as bcryptHash,compare as bcryptCompare} from 'bcryptjs';
-import {getChatGPTUser, type ChatGPTUser} from '@/app/chatgpt-auth';
+import {type ChatGPTUser} from '@/app/chatgpt-auth';
 export class AuthError extends Error{constructor(public status:number,message:string){super(message)}}
 export const authDB=()=> (env as any).DB as D1Database;
 export const authNow=()=>new Date().toISOString();
@@ -22,8 +22,8 @@ export async function verifiedAccount(provider:'google'|'chatgpt',subject:string
  const previous=await authDB().prepare("SELECT user_id FROM memberships WHERE lower(email)=? ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END LIMIT 1").bind(email).first<{user_id:string}>();
  const id=crypto.randomUUID(),userId=previous?.user_id||(provider==='chatgpt'?subject:crypto.randomUUID()),isAdmin=email===adminEmail();await authDB().prepare(`INSERT OR IGNORE INTO auth_accounts (id,email,name,user_id,${column},email_verified,status,created_at) VALUES (?,?,?,?,?,1,?,?)`).bind(id,email,name.slice(0,200)||email,userId,subject,isAdmin?'approved':'pending',authNow()).run();return verifiedAccount(provider,subject,email,name);
 }
-export async function getAccount(){const h=await headers();if(cookieFrom(h.get('cookie')||'','vamo_signed_out')==='1')return await sessionAccount();const fromSession=await sessionAccount();if(fromSession)return fromSession;const platform=await getChatGPTUser();if(!platform)return null;return verifiedAccount('chatgpt',platform.userId,platform.email,platform.fullName||platform.email)}
-export async function getApplicationUser():Promise<ChatGPTUser|null>{const a=await getAccount();if(!a)return null;if(a.status!=='approved')throw new AuthError(403,a.status==='pending'?'Seu cadastro aguarda aprovação do administrador.':'Seu acesso está suspenso.');return {userId:a.user_id,email:a.email,displayName:a.name,fullName:a.name}}
+export async function getAccount(){return sessionAccount()}
+export async function getApplicationUser():Promise<ChatGPTUser|null>{const a=await getAccount();if(!a)return null;if(!a.password_hash)throw new AuthError(403,'Defina sua senha para acessar o sistema.');if(a.status!=='approved')throw new AuthError(403,a.status==='pending'?'Seu cadastro aguarda aprovação do administrador.':'Seu acesso está suspenso.');return {userId:a.user_id,email:a.email,displayName:a.name,fullName:a.name}}
 export function oauthConfiguration(){const e=env as any;return {configured:!!(e.GOOGLE_CLIENT_ID&&e.GOOGLE_CLIENT_SECRET&&e.APP_ORIGIN),clientId:String(e.GOOGLE_CLIENT_ID||''),clientSecret:String(e.GOOGLE_CLIENT_SECRET||''),origin:String(e.APP_ORIGIN||'')}}
 export function validateAuthOrigin(req:Request){const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin||req.headers.get('sec-fetch-site')==='cross-site')throw new AuthError(403,'Origem não autorizada.')}
 export async function authLimit(key:string,max:number){const minute=Math.floor(Date.now()/60000);const r:any=await authDB().prepare('INSERT INTO rate_limits (id,count,expires) VALUES (?,1,?) ON CONFLICT(id) DO UPDATE SET count=count+1 RETURNING count').bind('auth:'+key+':'+minute,minute+2).first();if(r.count>max)throw new AuthError(429,'Muitas tentativas. Aguarde um minuto e tente novamente.')}

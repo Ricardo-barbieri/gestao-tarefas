@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 const base=process.env.TEST_URL||'http://127.0.0.1:8787';
 const suffix=crypto.randomUUID();const user=process.env.TEST_ADMIN_ID||'local_seedy';const email=process.env.TEST_ADMIN_EMAIL||'seedy@sites.test';
-const auth={'oai-authenticated-user-id':user,'oai-authenticated-user-email':email};let snap;
+const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:'Senha-local-para-testes-2026!'})});assert.equal(login.status,200,'Execute test:auth primeiro para preparar o administrador fictício.');const auth={Cookie:login.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ')};let snap;
 let checks=0;
 function ok(cond,message){assert.ok(cond,message);checks++;console.log('✓ '+message)}
 async function json(path,options={}){const r=await fetch(base+path,options);return {status:r.status,body:await r.json()}}
@@ -10,9 +10,9 @@ async function action(action,data={},expected=200,headers=auth,revision=snap.rev
 const unauth=await read({});ok(unauth.status===401,'API exige identidade');
 snap=(await read()).body;ok(snap.state.tasks.length>=7,'Banco inicializa demonstração persistente');const orgId=snap.orgId;
 const other={'oai-authenticated-user-id':'other-'+suffix,'oai-authenticated-user-email':'other@example.com'};
-const otherState=await read(other);ok(otherState.status===403&&!otherState.body.state,'Identidade não aprovada não cria empresa nem acessa dados');
-ok((await read(other,orgId)).status===403,'Leitura direta da empresa alheia é bloqueada');
-await action('createTask',{boardId:'marketing',title:'Ataque entre empresas'},403,other);ok(true,'Escrita em empresa alheia é bloqueada');
+const otherState=await read(other);ok(otherState.status===401&&!otherState.body.state,'Identidade não aprovada não cria empresa nem acessa dados');
+ok((await read(other,orgId)).status===401,'Leitura direta da empresa alheia é bloqueada');
+await action('createTask',{boardId:'marketing',title:'Ataque entre empresas'},401,other);ok(true,'Escrita em empresa alheia é bloqueada');
 await action('publishForm',{id:'briefing',published:true});const token=snap.result.token;
 const publicForm=await json('/api/public/'+token);ok(publicForm.status===200&&publicForm.body.form.questions.length===5,'Formulário publicado disponível sem identidade interna');
 const receipt=crypto.randomUUID();async function submit(){const fd=new FormData();fd.set('receipt',receipt);fd.set('version','1');fd.set('email','requester@example.com');fd.set('briefing','Arte da campanha de validação');fd.set('impacto','5');fd.set('prazo','2026-11-05');fd.set('arquivo',new File(['%PDF-1.4\nDemonstração de teste\n%%EOF'],'briefing.pdf',{type:'application/pdf'}));return json('/api/public/'+token,{method:'POST',body:fd});}

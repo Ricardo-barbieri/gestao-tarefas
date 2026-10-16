@@ -1,8 +1,10 @@
+> Atualização de acesso: somente e-mail e senha, mediante aprovação do administrador. Google e login social geral desativados. Para a primeira senha do proprietário, veja docs/ACESSO-E-IDENTIDADE.md.
+
 # Executar e experimentar
 
 ## Demonstração hospedada
 
-A URL publicada será registrada no README depois da implantação. A página de entrada é pública; os dados internos exigem conta aprovada. O administrador entra primeiro por ChatGPT e define sua senha em Minha conta. Ao entrar pela primeira vez, o sistema cria a empresa fictícia Estúdio Aurora, Marketing, pessoas fictícias, projetos e sete tarefas. Não use dados reais neste estágio.
+A URL publicada será registrada no README depois da implantação. A página de entrada é pública; os dados internos exigem conta aprovada. O administrador define sua primeira senha em /definir-senha, com verificação exclusiva do proprietário. Depois entra por e-mail e senha. Ao entrar pela primeira vez, o sistema cria a empresa fictícia Estúdio Aurora, Marketing, pessoas fictícias, projetos e sete tarefas. Não use dados reais neste estágio.
 
 ## Execução local
 
@@ -25,7 +27,7 @@ npm run dev
 
 Para a revisão de acesso, aplique também drizzle/0002_brown_rhodey.sql. Configure ADMIN_EMAIL e APP_ORIGIN no servidor; em desenvolvimento, o mock usa seedy@sites.test. Leia ACESSO-E-IDENTIDADE.md antes de configurar autenticação.
 
-Abra o endereço informado, normalmente http://127.0.0.1:5173, e clique em Entrar com ChatGPT. **Somente no desenvolvimento loopback**, o template oferece identidade fictícia local. O banco local persiste em .wrangler/state; os arquivos locais R2 também ficam nesse estado. Não versionar essa pasta.
+Abra o endereço informado, normalmente http://127.0.0.1:5173, e entre com a conta fictícia preparada por tests/auth-integration.mjs. **Somente no desenvolvimento loopback**, o template oferece identidade fictícia local. O banco local persiste em .wrangler/state; os arquivos locais R2 também ficam nesse estado. Não versionar essa pasta.
 
 ## Cenário demonstrativo
 
@@ -60,7 +62,7 @@ Os testes criam organizações e arquivos fictícios isolados, sem enviar e-mail
 ## Configuração de serviços
 
 - DB e BUCKET: bindings D1 e R2 provisionados pela hospedagem Sites, definidos no manifesto.
-- Login/logout/recuperação: provedor ChatGPT da hospedagem.
+- Login e logout: e-mail e senha. Recuperação por e-mail ainda requer serviço de envio.
 - WEBHOOK_ALLOWED_HOSTS: lista de domínios HTTPS exatos autorizados no servidor. Vazio bloqueia todas as ativações. Registrar via configuração de variáveis do ambiente da hospedagem.
 - E-mail, WhatsApp e IA: adaptadores e credenciais pendentes. Não basta preencher uma variável para que funcionalidades não implementadas comecem a funcionar.
 - Webhooks agendados: o Worker tem handler scheduled; provisionar a agenda no ambiente escolhido. Até lá, primeira tentativa/retentativas vencidas são processadas após ações e há botão manual.

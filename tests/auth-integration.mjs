@@ -12,7 +12,12 @@ out=await call('/api/auth/register',{body:{name:'Pessoa de teste',email,password
 out=await call('/api/auth/login',{body:{email,password}});ok(out.r.status===403&&out.d.error.includes('aprovação'),'Senha correta não libera conta pendente');
 out=await call('/api/auth/login',{body:{email,password:'senha-incorreta'}});ok(out.r.status===401,'Senha incorreta é recusada');
 out=await call('/api/access');ok(out.r.status===401,'Fila de aprovação não é pública');
-const owner=await call('/api/auth/platform',{cookie:'__sites_local_auth=1'});ok(owner.r.status===303&&owner.cookie.includes('vamo_session='),'Identidade local verificada cria sessão do administrador');const ownerCookie=owner.cookie;
+out=await call('/api/auth/platform',{cookie:'__sites_local_auth=1'});ok(out.r.status===410,'Login social geral está desativado');
+out=await call('/api/state',{cookie:'__sites_local_auth=1'});ok(out.r.status===401,'Identidade da plataforma não substitui login por senha');
+const owner=await call('/api/auth/admin-setup',{cookie:'__sites_local_auth=1'});const ownerPassword='Senha-local-para-testes-2026!';
+if(owner.r.status===303){ok(owner.cookie.includes('vamo_session='),'Verificação do proprietário inicia configuração restrita');out=await call('/api/state',{cookie:owner.cookie});ok(out.r.status===403,'Configuração inicial não libera workspace antes da senha');out=await call('/api/auth/password',{cookie:owner.cookie,body:{password:ownerPassword}});ok(out.r.status===200,'Proprietário define senha inicial');}else ok(owner.r.status===403,'Senha inicial existente não pode ser sobrescrita por login social');
+out=await call('/api/auth/login',{body:{email:'seedy@sites.test',password:ownerPassword}});ok(out.r.status===200,'Administrador entra somente com e-mail e senha');const ownerCookie=out.cookie;
+out=await call('/api/auth/admin-setup',{cookie:'__sites_local_auth=1'});ok(out.r.status===403,'Configuração inicial é bloqueada após definição da senha');
 out=await call('/api/state',{cookie:ownerCookie});ok(out.r.status===200&&out.d.role==='admin','Administrador mantém acesso ao workspace existente');let snap=out.d;
 out=await call('/api/access?org='+snap.orgId,{cookie:ownerCookie});ok(out.r.status===200&&out.d.requests.some(a=>a.email===email),'Administrador vê o novo cadastro pendente');const request=out.d.requests.find(a=>a.email===email);
 out=await call('/api/access',{cookie:ownerCookie,body:{id:request.id,decision:'approve',orgId:snap.orgId,revision:snap.revision,role:'member',teams:[]}});ok(out.r.status===200,'Aprovação vincula conta à empresa de forma transacional');
@@ -27,5 +32,6 @@ out=await call('/api/auth/login',{body:{email,password:next}});ok(out.r.status==
 out=await call('/api/auth/logout',{cookie:memberCookie,method:'POST'});ok(out.r.status===200,'Logout encerra a sessão no servidor');
 out=await call('/api/state',{cookie:memberCookie});ok(out.r.status===401,'Cookie revogado não recupera acesso');
 out=await call('/api/auth/register',{body:{email:'ataque@example.com',name:'Origem indevida',password},origin:'https://outro.example.com'});ok(out.r.status===403,'Cadastro e login recusam origem externa');
-out=await call('/api/auth/google');ok(out.r.status===303&&out.r.headers.get('location').includes('google_not_configured'),'Google ausente informa configuração pendente sem simular login');
+out=await call('/api/auth/google');ok(out.r.status===410,'Rota Google está desativada no servidor');
+out=await call('/api/auth/google/callback?code=falso&state=falso');ok(out.r.status===410,'Callback Google também está desativado');
 console.log(`\n${checks} verificações de acesso passaram.`);

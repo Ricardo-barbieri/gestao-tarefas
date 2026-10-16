@@ -50,3 +50,12 @@ A validação não é auditoria independente nem teste de carga. O fluxo de aces
 - 27 verificações do fluxo operacional aprovadas novamente com a exigência de conta aprovada.
 - Google não foi ativado nem testado com conta real: faltam GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET. Foram validados o estado indisponível e as regras de convergência Google/ChatGPT com identidades controladas.
 - Administrador principal configurado em variável protegida do servidor, com senha definida pelo próprio titular depois de autenticação verificada. Nenhuma senha real foi criada ou alterada pelo assistente.
+
+## Revisão visual e acesso por e-mail (16/10/2026)
+
+- TypeScript e testes de domínio, segurança e identidade aprovados. Teste adicional cobre criação em etapa escolhida, aplicação da automação, limite de tarefas e bloqueio de entrega direta.
+- Testes HTTP locais de acesso: login social desativado, ausência de autenticação automática por identidade da hospedagem, configuração inicial restrita do proprietário, bloqueio da configuração após primeira senha, cadastro pendente, aprovação, login, troca de senha, revogação e origem indevida.
+- Integração operacional autenticada por sessão de e-mail e senha; os testes deixam de depender de autenticação por cabeçalhos de plataforma.
+- Revisão no navegador das áreas Visão geral, Meu trabalho, Quadros, Projetos, Clientes, Equipes, Formulários, Automações, Relatórios, Notificações, Agentes de IA e Configurações. Verificada ausência de rolagem horizontal da página nas áreas principais em 390 px; colunas, tabelas e abas mantêm rolagem própria quando necessário.
+- Exercitados criação pela coluna Fazendo, preservação de texto após conflito de revisão, abertura de detalhes, foco inicial e Escape, seleção de equipes por nome e menu móvel.
+- Dados fictícios locais. Não foram enviadas mensagens nem alteradas senhas de contas reais. Não é uma certificação formal de acessibilidade nem teste exaustivo de todos os formulários.

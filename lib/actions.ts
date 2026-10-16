@@ -22,6 +22,9 @@ export async function action(c: Context, a: string, d: any) {
                 fail(400, 'Informe um título.');
             const ty = s.types.find(x => x.id === d.typeId && x.active);
             const t = newTask(s, p.id, { title, boardId: b.id, typeId: ty?.id || '', typeSnapshot: ty?.name || '', estimate: ty?.estimate || 0, assignee: p.id });
+            const destination=b.stages.find(st=>st.id===(d.stageId||b.stages.find(st=>st.kind!=='delivery')?.id));
+            if(!destination||destination.kind==='delivery')fail(400,'Escolha uma etapa aberta para criar a tarefa.');
+            moveTask(s,t,destination!.id,p);
             s.tasks.push(t);
             out = { id: t.id };
             break;
