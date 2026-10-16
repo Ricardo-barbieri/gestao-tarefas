@@ -1,0 +1,5 @@
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+export const organizations = sqliteTable('organizations', { id: text('id').primaryKey(), name: text('name').notNull(), state: text('state').notNull(), revision: integer('revision').notNull().default(1), createdAt: text('created_at').notNull() });
+export const memberships = sqliteTable('memberships', { id: text('id').primaryKey(), orgId: text('org_id').notNull().references(()=>organizations.id), userId: text('user_id').notNull(), email: text('email').notNull(), role: text('role').notNull() });
+export const publicLinks = sqliteTable('public_links', { hash: text('hash').primaryKey(), orgId: text('org_id').notNull().references(()=>organizations.id), kind: text('kind').notNull(), resourceId: text('resource_id').notNull(), expiresAt: text('expires_at').notNull(), revoked: integer('revoked').notNull().default(0) });
+export const rateLimits = sqliteTable('rate_limits', { id: text('id').primaryKey(), count: integer('count').notNull(), expires: integer('expires').notNull() });
