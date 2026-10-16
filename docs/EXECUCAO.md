@@ -2,7 +2,7 @@
 
 ## Demonstração hospedada
 
-A URL publicada será registrada no README depois da implantação. A hospedagem é privada e usa login ChatGPT do proprietário. Ao entrar pela primeira vez, o sistema cria a empresa fictícia Estúdio Aurora, Marketing, pessoas fictícias, projetos e sete tarefas. Não use dados reais neste estágio.
+A URL publicada será registrada no README depois da implantação. A página de entrada é pública; os dados internos exigem conta aprovada. O administrador entra primeiro por ChatGPT e define sua senha em Minha conta. Ao entrar pela primeira vez, o sistema cria a empresa fictícia Estúdio Aurora, Marketing, pessoas fictícias, projetos e sete tarefas. Não use dados reais neste estágio.
 
 ## Execução local
 
@@ -22,6 +22,8 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_large_the_fallen.sql
 npm run dev
 ```
+
+Para a revisão de acesso, aplique também drizzle/0002_brown_rhodey.sql. Configure ADMIN_EMAIL e APP_ORIGIN no servidor; em desenvolvimento, o mock usa seedy@sites.test. Leia ACESSO-E-IDENTIDADE.md antes de configurar autenticação.
 
 Abra o endereço informado, normalmente http://127.0.0.1:5173, e clique em Entrar com ChatGPT. **Somente no desenvolvimento loopback**, o template oferece identidade fictícia local. O banco local persiste em .wrangler/state; os arquivos locais R2 também ficam nesse estado. Não versionar essa pasta.
 
@@ -44,7 +46,7 @@ Na hospedagem privada, a política de acesso externa limita os passos anônimos;
 Em um terminal separado:
 
 ```sh
-npm run start -- --port 8787
+npm run start -- --port 8787 --var ADMIN_EMAIL:seedy@sites.test --var APP_ORIGIN:http://127.0.0.1:8787
 ```
 
 O Worker local compilado não usa o mock de identidade do servidor dev. A suíte de integração fornece identidades fictícias nos headers **somente ao loopback** para validar o código de produção atrás do gateway:

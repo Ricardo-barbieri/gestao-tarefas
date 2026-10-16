@@ -2,9 +2,9 @@
 
 Primeira versão funcional de um sistema original em português para tarefas, projetos e processos. **Demonstração para avaliação; o escopo completo ainda tem pendências.**
 
-Demonstração privada: https://vamo-gestao-rb.daringstork16.chatgpt.site
+Aplicação: https://vamo-gestao-rb.daringstork16.chatgpt.site
 
-Entre com a conta ChatGPT autorizada na hospedagem. O primeiro acesso cria Estúdio Aurora, equipe de Marketing, projetos e sete tarefas fictícias, em um workspace isolado por identidade.
+A página de acesso oferece e-mail e senha, cadastro gratuito sujeito à aprovação e entrada por ChatGPT. Google/Gmail aguarda credenciais OAuth. O administrador principal configura sua senha em Minha conta depois de entrar pelo provedor verificado; novos cadastros não criam empresas automaticamente.
 
 ## Já utilizável
 
@@ -15,6 +15,8 @@ Quadros e permissões, tarefas e subtarefas, Kanban/lista/calendário/cronograma
 Node >=22.13 e npm. `npm ci`, `npm run typecheck`, `npm test`, `npm run build`; aplique as duas migrações locais conforme [EXECUCAO.md](docs/EXECUCAO.md) e rode `npm run dev`.
 
 ## Documentação
+
+- [Nova paleta, acesso, aprovação e ativação do Google](docs/ACESSO-E-IDENTIDADE.md).
 
 - [Escopo implementado e pendências reais](docs/ESCOPO.md).
 - [Arquitetura, segurança e premissas](docs/ARQUITETURA.md).
@@ -29,6 +31,6 @@ React 19, TypeScript, Vinext/App Router, Cloudflare Workers, D1/SQLite e R2. Ide
 
 ## Configuração ainda necessária
 
-A hospedagem permanece privada: links anônimos de formulários/convidados precisam de política externa que permita essas rotas. E-mail, WhatsApp e IA não estão conectados: exigem adaptadores e credenciais, sem envios simulados. Webhooks exigem domínio permitido no servidor e configuração de agenda para tentativas sem tráfego. Consulte a lista completa de pendências antes de utilizar com dados reais.
+A audiência de hospedagem encontrada nesta revisão é pública e foi preservada. Dados internos exigem login e aprovação no servidor. Google exige GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET, conforme o guia de acesso. E-mail, WhatsApp e IA não estão conectados: exigem adaptadores e credenciais, sem envios simulados. Webhooks exigem domínio permitido no servidor e configuração de agenda para tentativas sem tráfego. Consulte a lista completa de pendências antes de utilizar com dados reais.
 
 Nenhuma senha fixa, credencial de provedor, cobrança, assinatura ou limite comercial está incluído. Dados de runtime e arquivos enviados não são versionados.

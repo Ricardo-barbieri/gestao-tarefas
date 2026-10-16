@@ -1,3 +1,4 @@
+import {adminEmail} from './auth';
 import { Context, admin, manager, taskAccess, boardAccess, fail, textInput, numberInput, dateInput, emailInput, audit, link, hash } from './server';
 import { validWebhookUrl, allowedWebhookUrl } from './webhooks';
 import { database } from './server';
@@ -320,7 +321,7 @@ export async function action(c: Context, a: string, d: any) {
             const name = textInput(d.name, 100).trim();
             if (!name)
                 fail(400, 'Nome obrigatório.');
-            const b: Board = { id: uid(), name, description: textInput(d.description || '', 2000), color: '#7c62da', access: d.access === 'all' ? 'all' : 'selected', teams: (d.teams || []).filter((id: string) => s.teams.some(t => t.id === id)), users: Array.from(new Set([p.id, ...(d.users || []).filter((id: string) => s.people.some(t => t.id === id))])), stages: ['Entrada', 'Fazendo', 'Em aprovação', 'Entregue'].map((name, i) => ({ id: uid(), name, kind: i === 0 ? 'entry' : i === 3 ? 'delivery' : 'work', limit: 0 })), archived: false, fieldOrder: ['description', 'assignee', 'due', 'estimate', 'type'] };
+            const b: Board = { id: uid(), name, description: textInput(d.description || '', 2000), color: '#e47251', access: d.access === 'all' ? 'all' : 'selected', teams: (d.teams || []).filter((id: string) => s.teams.some(t => t.id === id)), users: Array.from(new Set([p.id, ...(d.users || []).filter((id: string) => s.people.some(t => t.id === id))])), stages: ['Entrada', 'Fazendo', 'Em aprovação', 'Entregue'].map((name, i) => ({ id: uid(), name, kind: i === 0 ? 'entry' : i === 3 ? 'delivery' : 'work', limit: 0 })), archived: false, fieldOrder: ['description', 'assignee', 'due', 'estimate', 'type'] };
             s.boards.push(b);
             out = { id: b.id };
             break;
@@ -388,7 +389,7 @@ export async function action(c: Context, a: string, d: any) {
         }
         case 'saveType': {
             manager(c);
-            const ty = { id: d.id || uid(), name: textInput(d.name, 100), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#7c62da', description: textInput(d.description || '', 2000), estimate: numberInput(d.estimate), active: d.active !== false };
+            const ty = { id: d.id || uid(), name: textInput(d.name, 100), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#e47251', description: textInput(d.description || '', 2000), estimate: numberInput(d.estimate), active: d.active !== false };
             const i = s.types.findIndex(x => x.id === ty.id);
             if (i < 0)
                 s.types.push(ty);
@@ -420,6 +421,7 @@ export async function action(c: Context, a: string, d: any) {
                 fail(404, 'Pessoa inexistente.');
             if (d.role !== undefined || d.active !== undefined) {
                 const role = d.role !== undefined ? choices(d.role, ['admin', 'manager', 'member']) : person!.role;
+                if(person!.email.toLowerCase()===adminEmail()&&(d.active===false||(d.role!==undefined&&d.role!=='admin')))fail(409,'O administrador principal deve permanecer ativo com perfil de administrador.');
                 const active = d.active !== undefined ? !!d.active : person!.active !== false;
                 if (person!.role === 'admin' && (role !== 'admin' || !active) && !s.people.some(x => x.id !== person!.id && x.role === 'admin' && x.active !== false))
                     fail(409, 'Mantenha ao menos um administrador ativo.');

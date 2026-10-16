@@ -40,3 +40,13 @@ A suíte HTTP usa o Worker de produção no loopback com identidades fictícias,
 Uma prévia de Worker antigo chegou a manter módulos em memória após rebuild. O processo foi encerrado e reiniciado com o artefato final; as 27 verificações foram aprovadas nessa execução. A primeira execução de 24 verificações havia aprovado antes da inclusão da API v1.
 
 A validação não é auditoria independente nem teste de carga. O fluxo de acesso anônimo no domínio publicado depende da audiência da hospedagem; o Site é mantido privado. As pendências funcionais completas estão em ESCOPO.md.
+
+## Revisão de paleta e acesso
+
+- Paleta extraída da referência enviada: bege #F0ECE5, branco #FBF9F8, preto #1F1814, laranja #E47251. Login, cadastro e dashboard conferidos no navegador; largura de celular corrigida após inspeção visual.
+- Migração 0002 adiciona contas, sessões e estado de OAuth, sem credenciais fixas nem dados pessoais na migração.
+- 31 testes de domínio/webhooks/vinculação de identidades aprovados.
+- 25 verificações HTTP de cadastro, aprovação, senha, sessão e logout aprovadas no servidor de desenvolvimento e no Worker compilado.
+- 27 verificações do fluxo operacional aprovadas novamente com a exigência de conta aprovada.
+- Google não foi ativado nem testado com conta real: faltam GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET. Foram validados o estado indisponível e as regras de convergência Google/ChatGPT com identidades controladas.
+- Administrador principal configurado em variável protegida do servidor, com senha definida pelo próprio titular depois de autenticação verificada. Nenhuma senha real foi criada ou alterada pelo assistente.

@@ -31,7 +31,7 @@ A plataforma autentica usuários e fornece headers de identidade verificados. O 
 
 Identidade não concede acesso a organizações existentes. Todas as operações internas carregam vínculo ativo e filtram quadros pelo perfil/equipes/usuários. Seguidores, menções e identificadores não concedem acesso. Tokens de API herdam as permissões atuais do membro e seu escopo. Convidados usam tokens aleatórios específicos com hash, expiração e revogação.
 
-A demonstração cria um workspace isolado por primeira identidade. Convites permitem que outra identidade participe da mesma organização depois de validar o e-mail autenticado. O aceite direciona para a organização do convite.
+Desde a revisão de acesso, somente o administrador principal configurado pode criar o workspace inicial. Novas contas ficam pendentes e não criam empresas automaticamente. Convites permitem que outra identidade participe da mesma organização depois de validar o e-mail autenticado. O aceite direciona para a organização do convite.
 
 ## Datas e dinheiro
 

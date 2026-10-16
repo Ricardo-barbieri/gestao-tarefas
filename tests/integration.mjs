@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 const base=process.env.TEST_URL||'http://127.0.0.1:8787';
-const suffix=crypto.randomUUID();const user='qa-'+suffix;const email='qa-'+suffix+'@example.com';
+const suffix=crypto.randomUUID();const user=process.env.TEST_ADMIN_ID||'local_seedy';const email=process.env.TEST_ADMIN_EMAIL||'seedy@sites.test';
 const auth={'oai-authenticated-user-id':user,'oai-authenticated-user-email':email};let snap;
 let checks=0;
 function ok(cond,message){assert.ok(cond,message);checks++;console.log('✓ '+message)}
@@ -8,9 +8,9 @@ async function json(path,options={}){const r=await fetch(base+path,options);retu
 async function read(headers=auth,org){return json('/api/state'+(org?'?org='+org:''),{headers})}
 async function action(action,data={},expected=200,headers=auth,revision=snap.revision){const r=await json('/api/action',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({action,data,orgId:snap.orgId,revision})});assert.equal(r.status,expected,JSON.stringify(r.body));if(r.status===200)snap=r.body;return r.body;}
 const unauth=await read({});ok(unauth.status===401,'API exige identidade');
-snap=(await read()).body;ok(snap.state.tasks.length===7,'Banco inicializa demonstração persistente');const orgId=snap.orgId;
+snap=(await read()).body;ok(snap.state.tasks.length>=7,'Banco inicializa demonstração persistente');const orgId=snap.orgId;
 const other={'oai-authenticated-user-id':'other-'+suffix,'oai-authenticated-user-email':'other@example.com'};
-const otherSnap=(await read(other)).body;ok(otherSnap.orgId!==orgId,'Cada identidade recebe uma organização isolada');
+const otherState=await read(other);ok(otherState.status===403&&!otherState.body.state,'Identidade não aprovada não cria empresa nem acessa dados');
 ok((await read(other,orgId)).status===403,'Leitura direta da empresa alheia é bloqueada');
 await action('createTask',{boardId:'marketing',title:'Ataque entre empresas'},403,other);ok(true,'Escrita em empresa alheia é bloqueada');
 await action('publishForm',{id:'briefing',published:true});const token=snap.result.token;

@@ -1,6 +1,6 @@
 # Escopo e estado real da implementação
 
-Os dois documentos fornecidos pelo usuário são a referência funcional. O complemento prevalece sobre o texto principal. Esta é uma primeira versão utilizável; não equivale à conclusão integral dos 27 tópicos.
+Os dois documentos fornecidos pelo usuário são a referência funcional. O complemento prevalece sobre o texto principal. A revisão de acesso e paleta está detalhada em ACESSO-E-IDENTIDADE.md. Esta é uma primeira versão utilizável; não equivale à conclusão integral dos 27 tópicos.
 
 ## Fluxos implementados
 
@@ -44,8 +44,8 @@ Os dois documentos fornecidos pelo usuário são a referência funcional. O comp
 - WhatsApp sem provedor configurado: verificação de telefone, envio, deduplicação e registro por provedor ainda precisam do adaptador. Não há simulação de envio.
 - Adaptadores de e-mail e IA ainda não foram implementados: além das credenciais, precisam da conexão com o provedor. Convites e links são entregues manualmente. IA possui apenas configuração e bloqueio explícito de execução.
 - Os webhooks enviam payload mínimo (evento, ID da organização e tarefa). Não incluem automaticamente comentários/arquivos/custos. Novas tentativas rodam em próximas ações ou pela ação manual; o handler scheduled está pronto, mas a agenda da hospedagem não é provisionada automaticamente.
-- Recuperação de acesso depende da conta ChatGPT da plataforma. Não há senha local, credencial fixa ou mecanismo próprio de redefinição.
-- Aplicação publicada privada: destinatários externos não conseguem ultrapassar a barreira de acesso da hospedagem. Para formulários anônimos reais e portal externo, é preciso configurar a audiência de hospedagem/rotas públicas, mantendo o login e a autorização das rotas internas.
+- E-mail e senha, sessão própria e cadastro sujeito à aprovação foram implementados na revisão de acesso. Recuperação por e-mail ainda não implementada; provedores vinculados continuam oferecendo entrada. Não há credencial fixa.
+- A hospedagem foi encontrada pública na revisão de acesso e sua audiência foi preservada. Rotas internas continuam protegidas pelo login/aprovação e pelas permissões. Google depende das credenciais do cliente OAuth.
 - Não foram realizados teste de carga, auditoria independente, antivírus de arquivos ou certificação de conformidade. A publicação é uma demonstração funcional para avaliação.
 
 Não há cobrança, assinaturas ou limites comerciais.

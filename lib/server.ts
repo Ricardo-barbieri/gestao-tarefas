@@ -1,22 +1,23 @@
 import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import {getApplicationUser,adminEmail,AuthError} from './auth';
 import { State, Person, seed, canBoard, uid, now, log } from './model';
 export class HttpError extends Error {
     constructor(public status: number, message: string) { super(message); }
 }
 export const fail = (status: number, message: string): never => { throw new HttpError(status, message); };
 export async function hash(value: string) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(d)).map(x => x.toString(16).padStart(2, '0')).join(''); }
-export async function identity() { const u = await getChatGPTUser(); if (!u)
+export async function identity() { const u = await getApplicationUser(); if (!u)
     fail(401, 'Entre para acessar sua empresa.'); return u!; }
 export function database() { return (env as any).DB as D1Database; }
 export function bucket() { return (env as any).BUCKET as R2Bucket; }
 export async function context(orgId?: string) {
     const u = await identity();
     const db = database();
-    let membership: any = orgId ? await db.prepare('SELECT * FROM memberships WHERE user_id=? AND org_id=?').bind(u.userId, orgId).first() : await db.prepare('SELECT * FROM memberships WHERE user_id=? ORDER BY id LIMIT 1').bind(u.userId).first();
+    let membership: any = orgId ? await db.prepare('SELECT * FROM memberships WHERE user_id=? AND org_id=?').bind(u.userId, orgId).first() : await db.prepare("SELECT m.* FROM memberships m WHERE m.user_id=? ORDER BY CASE WHEN EXISTS (SELECT 1 FROM memberships principal WHERE principal.org_id=m.org_id AND lower(principal.email)=? AND principal.role='admin') THEN 0 ELSE 1 END,m.id LIMIT 1").bind(u.userId,adminEmail()).first();
     if (!membership) {
         if (orgId)
             fail(403, 'Sem acesso a esta empresa.');
+        if(u.email.toLowerCase()!==adminEmail())fail(403,'Seu cadastro aguarda aprovação e vínculo com a empresa.');
         const id = 'org-' + await hash(u.userId);
         const s = seed(u.userId, u.email, u.fullName || 'Você');
         await db.batch([db.prepare('INSERT OR IGNORE INTO organizations (id,name,state,revision,created_at) VALUES (?,?,?,1,?)').bind(id, s.org.name, JSON.stringify(s), now()), db.prepare('INSERT OR IGNORE INTO memberships (id,org_id,user_id,email,role) VALUES (?,?,?,?,?)').bind(id + ':' + u.userId, id, u.userId, u.email, 'admin')]);
@@ -72,7 +73,7 @@ catch {
 } }
 export function sameOrigin(req: Request) { const o = req.headers.get('origin'); if (o && o !== new URL(req.url).origin)
     fail(403, 'Origem não autorizada.'); }
-export function errorResponse(e: any) { const status = e instanceof HttpError ? e.status : 400; return Response.json({ error: status >= 500 ? 'Não foi possível concluir a operação.' : e.message || 'Operação inválida.' }, { status }); }
+export function errorResponse(e: any) { const status = (e instanceof HttpError||e instanceof AuthError) ? e.status : 400; return Response.json({ error: status >= 500 ? 'Não foi possível concluir a operação.' : e.message || 'Operação inválida.' }, { status }); }
 export async function limit(key: string, max = 30) { const bucket = Math.floor(Date.now() / 60000); const id = key + ':' + bucket; const r: any = await database().prepare('INSERT INTO rate_limits (id,count,expires) VALUES (?,1,?) ON CONFLICT(id) DO UPDATE SET count=count+1 RETURNING count').bind(id, bucket + 2).first(); if (r.count > max)
     fail(429, 'Muitas tentativas. Aguarde um minuto.'); if (Math.random() < .02)
     await database().prepare('DELETE FROM rate_limits WHERE expires < ?').bind(bucket).run(); }

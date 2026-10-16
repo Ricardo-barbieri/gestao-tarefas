@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+const base=process.env.AUTH_TEST_URL||'http://127.0.0.1:5173';
+if(!['127.0.0.1','localhost'].includes(new URL(base).hostname))throw Error('Este teste cria apenas contas fictícias em loopback.');
+let checks=0;function ok(cond,label){assert.ok(cond,label);checks++;console.log('✓ '+label)}
+async function call(path,{cookie='',body,method=body?'POST':'GET',origin}={}){const r=await fetch(base+path,{method,redirect:'manual',headers:{...(process.env.AUTH_TEST_ADMIN_HEADERS==='1'&&cookie==='__sites_local_auth=1'?{'oai-authenticated-user-id':'local_seedy','oai-authenticated-user-email':'seedy@sites.test'}:{}),...(cookie?{Cookie:cookie}:{}),...(body?{'Content-Type':'application/json'}:{}),...(origin?{Origin:origin}:{})},body:body?JSON.stringify(body):undefined});let d;try{d=await r.json()}catch{d={}}return {r,d,cookie:r.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ')}}
+const email='qa-'+crypto.randomUUID()+'@example.com',password='Teste-'+crypto.randomUUID();
+let out=await call('/api/state');ok(out.r.status===401,'Workspace anônimo permanece protegido');
+out=await call('/api/auth/me');ok(out.r.status===200&&!out.d.account&&!out.d.googleConfigured,'Página de acesso identifica visitante e Google não configurado');
+out=await call('/api/auth/register',{body:{name:'Tentativa',email:'seedy@sites.test',password}});ok(out.r.status===403,'Cadastro por senha não pode tomar o e-mail do administrador');
+out=await call('/api/auth/register',{body:{name:'Pessoa de teste',email,password:'curta'}});ok(out.r.status===400,'Senha curta é recusada pelo servidor');
+out=await call('/api/auth/register',{body:{name:'Pessoa de teste',email,password}});ok(out.r.status===200,'Cadastro gratuito grava uma solicitação pendente');
+out=await call('/api/auth/login',{body:{email,password}});ok(out.r.status===403&&out.d.error.includes('aprovação'),'Senha correta não libera conta pendente');
+out=await call('/api/auth/login',{body:{email,password:'senha-incorreta'}});ok(out.r.status===401,'Senha incorreta é recusada');
+out=await call('/api/access');ok(out.r.status===401,'Fila de aprovação não é pública');
+const owner=await call('/api/auth/platform',{cookie:'__sites_local_auth=1'});ok(owner.r.status===303&&owner.cookie.includes('vamo_session='),'Identidade local verificada cria sessão do administrador');const ownerCookie=owner.cookie;
+out=await call('/api/state',{cookie:ownerCookie});ok(out.r.status===200&&out.d.role==='admin','Administrador mantém acesso ao workspace existente');let snap=out.d;
+out=await call('/api/access?org='+snap.orgId,{cookie:ownerCookie});ok(out.r.status===200&&out.d.requests.some(a=>a.email===email),'Administrador vê o novo cadastro pendente');const request=out.d.requests.find(a=>a.email===email);
+out=await call('/api/access',{cookie:ownerCookie,body:{id:request.id,decision:'approve',orgId:snap.orgId,revision:snap.revision,role:'member',teams:[]}});ok(out.r.status===200,'Aprovação vincula conta à empresa de forma transacional');
+out=await call('/api/auth/login',{body:{email,password}});ok(out.r.status===200,'Conta aprovada entra com e-mail e senha');let memberCookie=out.cookie;ok(out.r.headers.getSetCookie().some(c=>c.includes('HttpOnly')&&c.includes('SameSite=Lax')),'Sessão usa cookie HttpOnly e SameSite');
+out=await call('/api/auth/me',{cookie:memberCookie});ok(out.d.account.email===email&&!JSON.stringify(out.d).includes('password_hash'),'Minha conta não expõe hash de senha ou tokens');
+out=await call('/api/state',{cookie:memberCookie});ok(out.r.status===200&&out.d.orgId===snap.orgId&&out.d.state.tasks.length===0,'Colaborador aprovado não herda quadros restritos automaticamente');
+out=await call('/api/access?org='+snap.orgId,{cookie:memberCookie});ok(out.r.status===403,'Colaborador não aprova novos cadastros');
+out=await call('/api/auth/password',{cookie:memberCookie,body:{currentPassword:'errada',password:'Outra-'+crypto.randomUUID()}});ok(out.r.status===403,'Alteração de senha exige a senha atual');
+const next='Nova-'+crypto.randomUUID();out=await call('/api/auth/password',{cookie:memberCookie,body:{currentPassword:password,password:next}});ok(out.r.status===200,'Usuário altera a própria senha em sessão autenticada');const newCookie=out.cookie;
+out=await call('/api/state',{cookie:memberCookie});ok(out.r.status===401,'Alteração de senha revoga a sessão antiga');
+out=await call('/api/auth/login',{body:{email,password:next}});ok(out.r.status===200,'Nova senha autentica a conta aprovada');memberCookie=out.cookie;
+out=await call('/api/auth/logout',{cookie:memberCookie,method:'POST'});ok(out.r.status===200,'Logout encerra a sessão no servidor');
+out=await call('/api/state',{cookie:memberCookie});ok(out.r.status===401,'Cookie revogado não recupera acesso');
+out=await call('/api/auth/register',{body:{email:'ataque@example.com',name:'Origem indevida',password},origin:'https://outro.example.com'});ok(out.r.status===403,'Cadastro e login recusam origem externa');
+out=await call('/api/auth/google');ok(out.r.status===303&&out.r.headers.get('location').includes('google_not_configured'),'Google ausente informa configuração pendente sem simular login');
+console.log(`\n${checks} verificações de acesso passaram.`);
