@@ -22,6 +22,20 @@
       "when": 1792192230560,
       "tag": "0002_brown_rhodey",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792265476382,
+      "tag": "0003_tough_maestro",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792265660481,
+      "tag": "0004_elite_mandroid",
+      "breakpoints": true
     }
   ]
 }

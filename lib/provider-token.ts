@@ -1,0 +1,4 @@
+import {createRemoteJWKSet,jwtVerify,type JWTVerifyGetKey} from 'jose';
+const googleKeys=createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+const appleKeys=createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
+export async function verifyProviderToken(token:string,provider:'google'|'apple',audience:string,nonce:string,keySet?:JWTVerifyGetKey){const {payload}=await jwtVerify(token,keySet||(provider==='google'?googleKeys:appleKeys),{issuer:provider==='google'?['https://accounts.google.com','accounts.google.com']:'https://appleid.apple.com',audience,algorithms:['RS256'],requiredClaims:['exp','iat','sub','email','nonce'],maxTokenAge:'10m'});if(payload.nonce!==nonce||!payload.sub||typeof payload.email!=='string'||!(payload.email_verified===true||provider==='apple'&&payload.email_verified==='true'))throw Error('Identidade não confirmada.');return payload as typeof payload&{sub:string;email:string};}

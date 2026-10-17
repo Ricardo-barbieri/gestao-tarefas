@@ -1,6 +1,15 @@
+import type {CompanyStructure} from './organization';
+import {catalogTypes} from './catalog';
 export type Role = 'admin' | 'manager' | 'member';
 export type Person = {
     active?: boolean;
+    jobTitle?: string;
+    departmentId?:string;
+    positionId?:string;
+    functionIds?:string[];
+    permissions?: Partial<Record<'createTasks'|'editTasks'|'assignTasks'|'approveTasks'|'viewReports'|'viewFinance'|'managePeople',boolean>>;
+    allowedBoards?: string[];
+    deniedBoards?: string[];
     id: string;
     name: string;
     email: string;
@@ -71,6 +80,9 @@ export type Log = {
     detail: string;
 };
 export type Task = {
+    meetingDate?:string;
+    meetingTime?:string;
+    meetingDuration?:number;
     parentId?: string;
     recurrence?: {
         frequency: string;
@@ -198,6 +210,8 @@ export type State = {
         onboarding: number;
         help: boolean;
     };
+    jobTitles?:string[];
+    structure?:CompanyStructure;
     people: Person[];
     teams: {
         id: string;
@@ -206,6 +220,9 @@ export type State = {
     boards: Board[];
     tasks: Task[];
     types: {
+        jobTitles?:string[];
+        positionIds?:string[];
+        area?: string;
         id: string;
         name: string;
         color: string;
@@ -280,6 +297,8 @@ export type State = {
         taskId: string;
     }[];
     invites: {
+        name?: string;
+        jobTitle?: string;
         id: string;
         email: string;
         role: Role;
@@ -309,10 +328,11 @@ export const uid = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const log = (author: string, event: string, detail: string): Log => ({ id: uid(), at: now(), author, event, detail });
 export function canBoard(s: State, b: Board, p: Person) { if (p.active === false)
-    return false; return p.role === 'admin' || b.access === 'all' || b.users.includes(p.id) || b.teams.some(t => p.teams.includes(t)); }
+    return false; if(p.role==='admin')return true;if(p.deniedBoards?.includes(b.id))return false;return !!p.allowedBoards?.includes(b.id)|| b.access === 'all' || b.users.includes(p.id) || b.teams.some(t => p.teams.includes(t)); }
 export function isDelivered(s: State, t: Task) { return s.boards.find(b => b.id === t.boardId)?.stages.find(x => x.id === t.stageId)?.kind === 'delivery'; }
 export function projectProgress(s: State, id: string) { const ts = s.tasks.filter(t => t.projectId === id && !t.archived); return ts.length ? Math.round(ts.filter(t => isDelivered(s, t)).length / ts.length * 100) : 0; }
-export function newTask(s: State, p: string, data: Partial<Task>): Task { const b = s.boards.find(b => b.id === data.boardId) || s.boards[0]; const ty = s.types.find(x => x.id === data.typeId); return { id: uid(), number: Math.max(0, ...s.tasks.map(t => t.number)) + 1, title: 'Nova tarefa', description: '', boardId: b.id, stageId: b.stages[0].id, typeId: '', typeSnapshot: ty?.name || '', priority: 'Normal', assignee: '', creator: p, projectId: '', clientId: '', start: '', due: '', desiredDue: '', estimate: ty?.estimate || 0, tags: [], fields: {}, checklist: [], dependencies: [], followers: [], comments: [], attachments: [], approvals: [], history: [log(p, 'Criada', 'Tarefa criada')], archived: false, createdAt: now(), revision: 1, ...data }; }
+export function newTask(s: State,p:string,data:Partial<Task>):Task{const b=s.boards.find(b=>b.id===data.boardId)||s.boards[0];const ty=s.types.find(x=>x.id===data.typeId);const at=now();const defaults={start:relativeDue(s,at,1,false),desiredDue:relativeDue(s,at,5,false),due:relativeDue(s,at,5,false)};const fields=Object.fromEntries(s.customFields.filter(f=>f.id==='impacto'||f.name.toLocaleLowerCase('pt-BR')==='impacto da demanda').map(f=>[f.id,1]));return {id:uid(),number:Math.max(0,...s.tasks.map(t=>t.number))+1,title:'Nova tarefa',description:'',boardId:b.id,stageId:b.stages[0].id,typeId:'',typeSnapshot:ty?.name||'',priority:'Normal',assignee:p,creator:p,projectId:'',clientId:'',...defaults,estimate:ty?.estimate||0,tags:[],checklist:[],dependencies:[],followers:s.people.some(person=>person.id===p)?[p]:[],comments:[],attachments:[],approvals:[],history:[log(p,'Criada','Tarefa criada')],archived:false,createdAt:at,revision:1,...data,fields:{...fields,...data.fields}};}
+export function hasPermission(p:Person,key:NonNullable<Person['permissions']> extends Partial<Record<infer K,boolean>>?K:never){if(p.role==='admin')return true;const defaults:Record<string,boolean>={createTasks:true,editTasks:true,assignTasks:p.role==='manager',approveTasks:true,viewReports:p.role==='manager',viewFinance:false,managePeople:p.role==='manager'};return p.permissions?.[key]??defaults[key];}
 export function localParts(instant: string, timezone: string) { const p = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(instant)); const get = (t: string) => p.find(x => x.type === t)?.value || ''; return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${get('hour')}:${get('minute')}` }; }
 export function relativeDue(s: State, event: string, days: number, business: boolean) { let date = localParts(event, s.org.timezone).date; let d = new Date(date + 'T12:00:00Z'); let n = 0; while (n < days) {
     d.setUTCDate(d.getUTCDate() + 1);
@@ -359,7 +379,7 @@ export function moveTask(s: State, t: Task, stageId: string, p: Person, event = 
     t.revision++;
 }
 export function seed(userId: string, email: string, name: string): State {
-    const s: State = { demo: true, org: { name: 'Estúdio Aurora', language: 'pt-BR', timezone: 'America/Sao_Paulo', workdays: [1, 2, 3, 4, 5], holidays: [], hours: 8, onboarding: 0, help: true }, people: [{ id: userId, name: name || 'Você', email, role: 'admin', teams: ['marketing'], hours: 40, hourlyCents: 0, absences: [] }, { id: 'demo-ana', name: 'Ana Martins', email: 'ana@example.com', role: 'manager', teams: ['marketing'], hours: 40, hourlyCents: 8500, absences: [] }, { id: 'demo-lucas', name: 'Lucas Costa', email: 'lucas@example.com', role: 'member', teams: ['marketing'], hours: 40, hourlyCents: 6500, absences: [] }], teams: [{ id: 'marketing', name: 'Marketing' }], boards: [{ id: 'marketing', name: 'Marketing', description: 'Da primeira ideia à próxima grande entrega.', color: '#e47251', access: 'selected', teams: ['marketing'], users: [userId], stages: [{ id: 'entrada', name: 'Entrada', kind: 'entry', limit: 0 }, { id: 'fazendo', name: 'Fazendo', kind: 'work', limit: 8 }, { id: 'aprovacao', name: 'Em aprovação', kind: 'work', limit: 0 }, { id: 'entregue', name: 'Entregue', kind: 'delivery', limit: 0 }], archived: false, fieldOrder: ['description', 'assignee', 'due', 'estimate', 'type'] }], tasks: [], types: [{ id: 'arte', name: 'Criação de arte', color: '#e47251', description: 'Peças visuais para campanhas e comunicação.', estimate: 4, active: true }, { id: 'conteudo', name: 'Conteúdo', color: '#288879', description: 'Textos e planejamento editorial.', estimate: 2, active: true }], projects: [{ id: 'campanha', name: 'Campanha de primavera', description: 'Uma nova estação, novas possibilidades.', clientId: 'horizonte', manager: userId, status: 'Em andamento', start: '2026-10-01', end: '2026-11-15', budgetCents: 1200000 }, { id: 'marca', name: 'Nova identidade Aurora', description: 'Construir uma marca que nos representa.', clientId: '', manager: userId, status: 'Em andamento', start: '2026-10-01', end: '2026-12-01', budgetCents: 0 }], clients: [{ id: 'horizonte', name: 'Horizonte', email: 'contato@example.com', contact: 'Marina · Marketing' }], forms: [{ id: 'briefing', name: 'Solicitação de criação', boardId: 'marketing', stageId: 'entrada', typeId: 'arte', tags: ['Solicitação externa'], assignee: userId, titleTemplate: 'Criação · {briefing}', fallback: 'Nova solicitação de criação', published: false, version: 1, confirmation: 'Recebemos seu briefing. Nossa equipe fará a triagem em breve.', useDesiredDue: false, questions: [{ id: 'email', label: 'Qual é o seu e-mail?', instruction: 'Usaremos este endereço para acompanhar a solicitação.', type: 'email', required: true, target: 'email', options: '' }, { id: 'briefing', label: 'O que vamos criar juntos?', instruction: 'Conte o objetivo, o público e os materiais necessários.', type: 'textarea', required: true, target: 'description', options: '' }, { id: 'impacto', label: 'Quanto esta solicitação está afetando seu trabalho?', instruction: 'De 1 (baixo) a 5 (alto).', type: 'number', required: true, target: 'impacto', options: '' }, { id: 'prazo', label: 'Para quando você precisa?', instruction: 'Este é o prazo desejado; a equipe confirmará a data de entrega.', type: 'date', required: false, target: 'desiredDue', options: '' }, { id: 'arquivo', label: 'Materiais de referência', instruction: 'PDF, imagem ou texto, até 10 MB.', type: 'file', required: false, target: 'attachment', options: '' }] }], rules: [{ id: 'prazo-5', name: '5 dias úteis para criar', boardId: 'marketing', stageId: 'fazendo', days: 5, business: true, cutoff: '18:00', existing: 'preserve', reentry: 'preserve', active: true }], runs: [], time: [], timers: [], shares: [], notifications: [], views: [], dashboards: {}, audit: [], receipts: [], invites: [], agents: [], customFields: [{ id: 'impacto', name: 'Impacto da demanda', type: 'rating', options: '', min: 1, max: 5 }] };
+    const s: State = { demo: true, org: { name: 'Estúdio Aurora', language: 'pt-BR', timezone: 'America/Sao_Paulo', workdays: [1, 2, 3, 4, 5], holidays: [], hours: 8, onboarding: 0, help: true }, people: [{ id: userId, name: name || 'Você', email, role: 'admin', teams: ['marketing'], hours: 40, hourlyCents: 0, absences: [] }, { id: 'demo-ana', name: 'Ana Martins', email: 'ana@example.com', role: 'manager', teams: ['marketing'], hours: 40, hourlyCents: 8500, absences: [] }, { id: 'demo-lucas', name: 'Lucas Costa', email: 'lucas@example.com', role: 'member', teams: ['marketing'], hours: 40, hourlyCents: 6500, absences: [] }], teams: [{ id: 'marketing', name: 'Marketing' }], boards: [{ id: 'marketing', name: 'Marketing', description: 'Da primeira ideia à próxima grande entrega.', color: '#e47251', access: 'selected', teams: ['marketing'], users: [userId], stages: [{ id: 'entrada', name: 'Entrada', kind: 'entry', limit: 0 }, { id: 'fazendo', name: 'Fazendo', kind: 'work', limit: 8 }, { id: 'aprovacao', name: 'Em aprovação', kind: 'work', limit: 0 }, { id: 'entregue', name: 'Entregue', kind: 'delivery', limit: 0 }], archived: false, fieldOrder: ['description', 'assignee', 'due', 'estimate', 'type'] }], tasks: [], types: [{ id: 'arte', name: 'Criação de arte', color: '#e47251', description: 'Peças visuais para campanhas e comunicação.', estimate: 4, active: true }, { id: 'conteudo', name: 'Conteúdo', color: '#288879', description: 'Textos e planejamento editorial.', estimate: 2, active: true },...catalogTypes()], projects: [{ id: 'campanha', name: 'Campanha de primavera', description: 'Uma nova estação, novas possibilidades.', clientId: 'horizonte', manager: userId, status: 'Em andamento', start: '2026-10-01', end: '2026-11-15', budgetCents: 1200000 }, { id: 'marca', name: 'Nova identidade Aurora', description: 'Construir uma marca que nos representa.', clientId: '', manager: userId, status: 'Em andamento', start: '2026-10-01', end: '2026-12-01', budgetCents: 0 }], clients: [{ id: 'horizonte', name: 'Horizonte', email: 'contato@example.com', contact: 'Marina · Marketing' }], forms: [{ id: 'briefing', name: 'Solicitação de criação', boardId: 'marketing', stageId: 'entrada', typeId: 'arte', tags: ['Solicitação externa'], assignee: userId, titleTemplate: 'Criação · {briefing}', fallback: 'Nova solicitação de criação', published: false, version: 1, confirmation: 'Recebemos seu briefing. Nossa equipe fará a triagem em breve.', useDesiredDue: false, questions: [{ id: 'email', label: 'Qual é o seu e-mail?', instruction: 'Usaremos este endereço para acompanhar a solicitação.', type: 'email', required: true, target: 'email', options: '' }, { id: 'briefing', label: 'O que vamos criar juntos?', instruction: 'Conte o objetivo, o público e os materiais necessários.', type: 'textarea', required: true, target: 'description', options: '' }, { id: 'impacto', label: 'Quanto esta solicitação está afetando seu trabalho?', instruction: 'De 1 (baixo) a 5 (alto).', type: 'number', required: true, target: 'impacto', options: '' }, { id: 'prazo', label: 'Para quando você precisa?', instruction: 'Este é o prazo desejado; a equipe confirmará a data de entrega.', type: 'date', required: false, target: 'desiredDue', options: '' }, { id: 'arquivo', label: 'Materiais de referência', instruction: 'PDF, imagem ou texto, até 10 MB.', type: 'file', required: false, target: 'attachment', options: '' }] }], rules: [{ id: 'prazo-5', name: '5 dias úteis para criar', boardId: 'marketing', stageId: 'fazendo', days: 5, business: true, cutoff: '18:00', existing: 'preserve', reentry: 'preserve', active: true }], runs: [], time: [], timers: [], shares: [], notifications: [], views: [], dashboards: {}, audit: [], receipts: [], invites: [], agents: [], customFields: [{ id: 'impacto', name: 'Impacto da demanda', type: 'rating', options: '', min: 1, max: 5 }] };
     const demos = [['Planejar campanha de primavera', 'entrada', 'conteudo', 'campanha', 'Alta', userId, 3, ['Estratégia']], ['Criar peças para redes sociais', 'fazendo', 'arte', 'campanha', 'Alta', 'demo-ana', 6, ['Design', 'Social']], ['Revisar apresentação institucional', 'aprovacao', 'arte', 'marca', 'Normal', 'demo-lucas', 4, ['Branding']], ['Organizar referências visuais', 'entregue', 'arte', 'marca', 'Normal', userId, 2, ['Pesquisa']], ['Escrever textos da landing page', 'entrada', 'conteudo', 'campanha', 'Normal', 'demo-lucas', 3, ['Conteúdo']], ['Desenvolver identidade da campanha', 'fazendo', 'arte', 'campanha', 'Urgente', userId, 8, ['Design']], ['Preparar calendário editorial', 'entrada', 'conteudo', '', 'Baixa', 'demo-ana', 2, ['Planejamento']]];
     for (const [title, stageId, typeId, projectId, priority, assignee, estimate, tags] of demos as any[]) {
         const t = newTask(s, userId, { title, boardId: 'marketing', stageId, typeId, typeSnapshot: s.types.find(x => x.id === typeId)!.name, projectId, priority, assignee, estimate, tags, description: 'Dados de demonstração. Edite este briefing para registrar objetivos, contexto e critérios de entrega.', start: '2026-10-16', due: relativeDue(s, now(), s.tasks.length % 5 + 1, true) });
@@ -400,3 +420,5 @@ export function operationalMetrics(s: State, instant = new Date().toISOString())
     const nps = s.customFields.filter(f => f.type === 'nps').map(f => { const answers = tasks.map(t => t.fields[f.id]).filter(v => v !== '' && v !== undefined && Number.isFinite(Number(v))).map(Number); return { name: f.name, count: answers.length, score: answers.length ? Math.round((answers.filter(v => v >= 9).length - answers.filter(v => v <= 6).length) / answers.length * 100) : null }; });
     return { leadHours, slaCount: withDue.length, onTime: onTime.length, slaPercent: withDue.length ? Math.round(onTime.length / withDue.length * 100) : null, stageHours, nps };
 }
+
+export function createCompany(userId:string,email:string,name:string):State{const s=seed(userId,email,name);s.demo=false;s.org.name='Minha empresa';s.people=s.people.slice(0,1).map(p=>({...p,teams:[]}));s.teams=[];s.boards=[];s.tasks=[];s.projects=[];s.clients=[];s.forms=[];s.rules=[];s.notifications=[];s.types=catalogTypes();return s;}

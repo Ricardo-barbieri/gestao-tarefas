@@ -59,3 +59,12 @@ A validação não é auditoria independente nem teste de carga. O fluxo de aces
 - Revisão no navegador das áreas Visão geral, Meu trabalho, Quadros, Projetos, Clientes, Equipes, Formulários, Automações, Relatórios, Notificações, Agentes de IA e Configurações. Verificada ausência de rolagem horizontal da página nas áreas principais em 390 px; colunas, tabelas e abas mantêm rolagem própria quando necessário.
 - Exercitados criação pela coluna Fazendo, preservação de texto após conflito de revisão, abertura de detalhes, foco inicial e Escape, seleção de equipes por nome e menu móvel.
 - Dados fictícios locais. Não foram enviadas mensagens nem alteradas senhas de contas reais. Não é uma certificação formal de acessibilidade nem teste exaustivo de todos os formulários.
+
+## Plano aprovado — revisão local em 17/10/2026
+
+- TypeScript e build de produção local.
+- 50 testes unitários: domínio, permissões, prazos, identidade, tokens assinados, vínculo Google/Apple, proteção de segredos e eventos de calendário.
+- 30 verificações HTTP de acesso e 27 operacionais no Worker local.
+- 18 verificações do plano: cadastro direto, ativação única, espera pelo master, gestão por equipe, bloqueio de quadro, permissões e dashboard individual.
+- Provedores reais não testados: proprietário ainda não possui Google Cloud/Apple Developer. Não há credenciais reais no ambiente nem chamadas de sincronização para contas reais.
+- Nenhuma implantação, migração ou alteração de usuários em produção.

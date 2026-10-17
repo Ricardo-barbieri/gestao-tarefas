@@ -113,7 +113,7 @@ export async function POST(req: Request, { params }: {
                 return '';
             } return value.slice(0, 100); }).trim();
             const title = (missing || !generated ? f!.fallback : generated).slice(0, 300);
-            const t = newTask(c.s, 'solicitante', { title, description, boardId: f!.boardId, stageId: f!.stageId, typeId: f!.typeId, typeSnapshot: c.s.types.find(x => x.id === f!.typeId)?.name || '', estimate: c.s.types.find(x => x.id === f!.typeId)?.estimate || 0, assignee: f!.assignee, tags: [...f!.tags], fields, desiredDue, due: f!.useDesiredDue ? desiredDue : '', attachments, submission: { questions: f!.questions.map(q => ({ id: q.id, label: q.label, type: q.type })), at: now(), version: f!.version, formId: f!.id, answers } });
+            const t = newTask(c.s, 'solicitante', { title, description, boardId: f!.boardId, stageId: f!.stageId, typeId: f!.typeId, typeSnapshot: c.s.types.find(x => x.id === f!.typeId)?.name || '', estimate: c.s.types.find(x => x.id === f!.typeId)?.estimate || 0, assignee: f!.assignee, tags: [...f!.tags], fields, ...(desiredDue?{desiredDue,...(f!.useDesiredDue?{due:desiredDue}:{})}:{}), attachments, submission: { questions: f!.questions.map(q => ({ id: q.id, label: q.label, type: q.type })), at: now(), version: f!.version, formId: f!.id, answers } });
             c.s.tasks.push(t);
             c.s.receipts.push({ key: token + receipt, taskId: t.id });
             if (t.assignee)
