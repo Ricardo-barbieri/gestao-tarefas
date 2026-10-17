@@ -426,12 +426,32 @@ export async function action(c: Context, a: string, d: any) {
             s.teams.push({ id: uid(), name: textInput(d.name, 100) });
             break;
         }
+        case 'deletePerson':
+        case 'restorePerson': {
+            admin(c);
+            if(!adminEmail()||c.u?.email?.toLowerCase()!==adminEmail())fail(403,'Somente o admin master pode excluir ou restaurar pessoas.');
+            const person=s.people.find(x=>x.id===d.id);
+            if(!person)fail(404,'Pessoa inexistente.');
+            if(person!.email.toLowerCase()===adminEmail()||person!.id===p.id)fail(403,'O cadastro do admin master é protegido e não pode ser excluído.');
+            if(a==='deletePerson'){
+                if(person!.deletedAt)fail(409,'Este cadastro já foi excluído.');
+                if(typeof d.confirmEmail!=='string'||d.confirmEmail.trim().toLowerCase()!==person!.email.toLowerCase())fail(400,'Digite o e-mail da pessoa para confirmar a exclusão.');
+                const stoppedAt=now();for(const timer of s.timers.filter(t=>t.userId===person!.id)){s.time.push({id:uid(),taskId:timer.taskId,userId:person!.id,start:timer.start,end:stoppedAt,seconds:Math.max(1,Math.round((Date.parse(stoppedAt)-Date.parse(timer.start))/1000)),note:'Cronômetro encerrado pelo admin master ao excluir o cadastro'});const task=s.tasks.find(t=>t.id===timer.taskId);if(task){task.revision++;task.history.push(log(p.id,'Cronômetro encerrado','Cadastro da pessoa excluído'));}}s.timers=s.timers.filter(t=>t.userId!==person!.id);
+                person!.deletedAt=now();person!.deletedBy=p.id;person!.active=false;
+                for(const token of s.apiTokens||[])if(token.userId===person!.id)token.revoked=true;
+            }else{
+                if(!person!.deletedAt)fail(409,'Este cadastro não está excluído.');
+                delete person!.deletedAt;delete person!.deletedBy;person!.active=false;
+            }
+            break;
+        }
         case 'updatePerson': {
             if(!hasPermission(p,'managePeople'))fail(403,'Sem permissão para gerenciar pessoas.');
             const person = s.people.find(x => x.id === d.id);
             if (!person)
                 fail(404, 'Pessoa inexistente.');
             if(p.role!=='admin'){if(person!.id===p.id||person!.role!=='member'||!person!.teams.some(t=>p.teams.includes(t)))fail(403,'Gerencie somente colaboradores das suas equipes.');if(d.role&&d.role!=='member'||d.permissions||d.allowedBoards||d.deniedBoards||d.hourlyCents!==undefined)fail(403,'Somente administradores alteram permissões e custos.');if(d.teams?.some((t:string)=>!p.teams.includes(t)))fail(403,'Escolha apenas suas equipes.');}
+            if(person!.deletedAt)fail(409,'Restaure o cadastro excluído antes de editar.');
             updatePersonPlacement(s,person!,d);
             if(d.permissions!==undefined){if(!d.permissions||typeof d.permissions!=='object'||Array.isArray(d.permissions)||Object.entries(d.permissions).some(([k,v])=>!(k in permissionLabels)||typeof v!=='boolean'))fail(400,'Permissões inválidas.');person!.permissions=d.permissions;}
             for(const key of ['allowedBoards','deniedBoards'] as const)if(d[key]!==undefined){if(!Array.isArray(d[key])||d[key].some((id:string)=>!s.boards.some(b=>b.id===id)))fail(400,'Quadro inválido.');person![key]=d[key];}

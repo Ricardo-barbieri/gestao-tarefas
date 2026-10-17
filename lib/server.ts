@@ -34,7 +34,7 @@ export async function context(orgId?: string) {
     ensureStructure(s);
     s.org.workdays=s.org.workdays.filter(n=>n>=1&&n<=5);if(!s.org.workdays.length)s.org.workdays=[1,2,3,4,5];
     const p = s.people.find(x => x.id === u.userId);
-    if (!p || p.active === false)
+    if (!p || p.active === false || p.deletedAt)
         fail(403, 'Vínculo inativo.');
     const names=await db.prepare('SELECT a.user_id,a.name FROM auth_accounts a JOIN memberships m ON m.user_id=a.user_id WHERE m.org_id=?').bind(row.id).all<{user_id:string;name:string}>();
     for(const account of names.results){const person=s.people.find(x=>x.id===account.user_id);if(person)person.name=account.name;}
@@ -62,7 +62,7 @@ export function visible(c: Context) { const s = structuredClone(c.s); s.boards =
     s.projects = s.projects.map(p => ({ ...p, budgetCents: 0 }));
     s.audit = [];
     s.invites = [];
-} if(!hasPermission(c.p,'managePeople'))s.people=s.people.map(({permissions,allowedBoards,deniedBoards,...person})=>person);return { state: s, revision: c.revision, me: c.p.id, role:c.p.role,isMaster:c.p.email.toLowerCase()===adminEmail(),orgId:c.orgId }; }
+} if(!hasPermission(c.p,'managePeople'))s.people=s.people.map(({permissions,allowedBoards,deniedBoards,...person})=>person);return { state: s, revision: c.revision, me: c.p.id, role:c.p.role,isMaster:c.p.role==='admin'&&c.u?.email?.toLowerCase()===adminEmail(),masterId:s.people.find(p=>p.email.toLowerCase()===adminEmail())?.id,orgId:c.orgId }; }
 export function textInput(v: unknown, max = 1000) { if (typeof v !== 'string' || v.length > max)
     fail(400, 'Texto inválido ou muito longo.'); return v as string; }
 export function dateInput(v: any) { if (v !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(v) || (!Number.isFinite(Date.parse(v + 'T12:00:00Z')) || new Date(v + 'T12:00:00Z').toISOString().slice(0, 10) !== v)))
@@ -93,5 +93,5 @@ export function audit(c: Context, event: string, detail: string) { c.s.audit.pus
 export async function apiContext(req: Request, write = false) { const authorization = req.headers.get('authorization') || ''; if (!authorization.startsWith('Bearer '))
     fail(401, 'Informe um token Bearer válido.'); const token = authorization.slice(7); const { c, r } = await publicContext(token, 'api'); const record = c.s.apiTokens?.find(t => t.id === r.resource_id && !t.revoked && t.expiresAt > now()); if (!record)
     fail(401, 'Token expirado ou revogado.'); if (write && record!.scope !== 'write')
-    fail(403, 'Token sem permissão de escrita.'); const membership: any = await database().prepare('SELECT * FROM memberships WHERE org_id=? AND user_id=?').bind(c.orgId, record!.userId).first(); const person = c.s.people.find(x => x.id === record!.userId); if (!membership || !person || person.active === false)
+    fail(403, 'Token sem permissão de escrita.'); const membership: any = await database().prepare('SELECT * FROM memberships WHERE org_id=? AND user_id=?').bind(c.orgId, record!.userId).first(); const person = c.s.people.find(x => x.id === record!.userId); if (!membership || !person || person.active === false || person.deletedAt)
     fail(403, 'Vínculo inativo.'); c.p = person!; c.p.role = membership.role; await limit('api:' + r.resource_id, 60); return c; }

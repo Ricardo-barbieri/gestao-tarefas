@@ -3,6 +3,8 @@ import type {CompanyStructure} from './organization';
 import {catalogTypes} from './catalog';
 export type Role = 'admin' | 'manager' | 'member';
 export type Person = {
+    deletedAt?:string;
+    deletedBy?:string;
     active?: boolean;
     jobTitle?: string;
     departmentId?:string;
@@ -330,7 +332,7 @@ export type State = {
 export const uid = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const log = (author: string, event: string, detail: string): Log => ({ id: uid(), at: now(), author, event, detail });
-export function canBoard(s: State, b: Board, p: Person) { if (p.active === false)
+export function canBoard(s: State, b: Board, p: Person) { if (p.active === false || p.deletedAt)
     return false; if(p.role==='admin')return true;if(p.deniedBoards?.includes(b.id))return false;return !!p.allowedBoards?.includes(b.id)|| b.access === 'all' || b.users.includes(p.id) || b.teams.some(t => p.teams.includes(t)); }
 export function isDelivered(s: State, t: Task) { return s.boards.find(b => b.id === t.boardId)?.stages.find(x => x.id === t.stageId)?.kind === 'delivery'; }
 export function projectProgress(s: State, id: string) { const ts = s.tasks.filter(t => t.projectId === id && !t.archived); return ts.length ? Math.round(ts.filter(t => isDelivered(s, t)).length / ts.length * 100) : 0; }
