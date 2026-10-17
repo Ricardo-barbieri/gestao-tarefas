@@ -1,3 +1,4 @@
+import {refreshHolidays} from './holiday-sync';
 import {ensureStructure,StructureError} from './organization';
 import {catalogTypes,professionalRoles} from './catalog';
 import { env } from 'cloudflare:workers';
@@ -25,11 +26,13 @@ export async function context(orgId?: string) {
         await db.batch([db.prepare('INSERT OR IGNORE INTO organizations (id,name,state,revision,created_at) VALUES (?,?,?,1,?)').bind(id, s.org.name, JSON.stringify(s), now()), db.prepare('INSERT OR IGNORE INTO memberships (id,org_id,user_id,email,role) VALUES (?,?,?,?,?)').bind(id + ':' + u.userId, id, u.userId, u.email, 'admin')]);
         membership = { org_id: id, role: 'admin' };
     }
+    await refreshHolidays(db,membership.org_id);
     const row: any = await db.prepare('SELECT * FROM organizations WHERE id=?').bind(membership.org_id).first();
     if (!row)
         fail(404, 'Empresa não encontrada.');
     const s: State = JSON.parse(row.state);s.jobTitles ||= [...professionalRoles];for(const type of catalogTypes())if(!s.types.some(t=>t.id===type.id||t.name===type.name))s.types.push(type);
     ensureStructure(s);
+    s.org.workdays=s.org.workdays.filter(n=>n>=1&&n<=5);if(!s.org.workdays.length)s.org.workdays=[1,2,3,4,5];
     const p = s.people.find(x => x.id === u.userId);
     if (!p || p.active === false)
         fail(403, 'Vínculo inativo.');

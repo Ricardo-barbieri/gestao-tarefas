@@ -1,3 +1,4 @@
+import {isBusinessDay,type HolidayFeed} from './holidays';
 import type {CompanyStructure} from './organization';
 import {catalogTypes} from './catalog';
 export type Role = 'admin' | 'manager' | 'member';
@@ -206,6 +207,8 @@ export type State = {
         timezone: string;
         workdays: number[];
         holidays: string[];
+        manualHolidays?:string[];
+        holidayFeed?:HolidayFeed;
         hours: number;
         onboarding: number;
         help: boolean;
@@ -331,13 +334,13 @@ export function canBoard(s: State, b: Board, p: Person) { if (p.active === false
     return false; if(p.role==='admin')return true;if(p.deniedBoards?.includes(b.id))return false;return !!p.allowedBoards?.includes(b.id)|| b.access === 'all' || b.users.includes(p.id) || b.teams.some(t => p.teams.includes(t)); }
 export function isDelivered(s: State, t: Task) { return s.boards.find(b => b.id === t.boardId)?.stages.find(x => x.id === t.stageId)?.kind === 'delivery'; }
 export function projectProgress(s: State, id: string) { const ts = s.tasks.filter(t => t.projectId === id && !t.archived); return ts.length ? Math.round(ts.filter(t => isDelivered(s, t)).length / ts.length * 100) : 0; }
-export function newTask(s: State,p:string,data:Partial<Task>):Task{const b=s.boards.find(b=>b.id===data.boardId)||s.boards[0];const ty=s.types.find(x=>x.id===data.typeId);const at=now();const defaults={start:relativeDue(s,at,1,false),desiredDue:relativeDue(s,at,5,false),due:relativeDue(s,at,5,false)};const fields=Object.fromEntries(s.customFields.filter(f=>f.id==='impacto'||f.name.toLocaleLowerCase('pt-BR')==='impacto da demanda').map(f=>[f.id,1]));return {id:uid(),number:Math.max(0,...s.tasks.map(t=>t.number))+1,title:'Nova tarefa',description:'',boardId:b.id,stageId:b.stages[0].id,typeId:'',typeSnapshot:ty?.name||'',priority:'Normal',assignee:p,creator:p,projectId:'',clientId:'',...defaults,estimate:ty?.estimate||0,tags:[],checklist:[],dependencies:[],followers:s.people.some(person=>person.id===p)?[p]:[],comments:[],attachments:[],approvals:[],history:[log(p,'Criada','Tarefa criada')],archived:false,createdAt:at,revision:1,...data,fields:{...fields,...data.fields}};}
+export function newTask(s: State,p:string,data:Partial<Task>):Task{const b=s.boards.find(b=>b.id===data.boardId)||s.boards[0];const ty=s.types.find(x=>x.id===data.typeId);const at=now();const defaults={start:relativeDue(s,at,1,true),desiredDue:relativeDue(s,at,5,true),due:relativeDue(s,at,5,true)};const fields=Object.fromEntries(s.customFields.filter(f=>f.id==='impacto'||f.name.toLocaleLowerCase('pt-BR')==='impacto da demanda').map(f=>[f.id,1]));return {id:uid(),number:Math.max(0,...s.tasks.map(t=>t.number))+1,title:'Nova tarefa',description:'',boardId:b.id,stageId:b.stages[0].id,typeId:'',typeSnapshot:ty?.name||'',priority:'Normal',assignee:p,creator:p,projectId:'',clientId:'',...defaults,estimate:ty?.estimate||0,tags:[],checklist:[],dependencies:[],followers:s.people.some(person=>person.id===p)?[p]:[],comments:[],attachments:[],approvals:[],history:[log(p,'Criada','Tarefa criada')],archived:false,createdAt:at,revision:1,...data,fields:{...fields,...data.fields}};}
 export function hasPermission(p:Person,key:NonNullable<Person['permissions']> extends Partial<Record<infer K,boolean>>?K:never){if(p.role==='admin')return true;const defaults:Record<string,boolean>={createTasks:true,editTasks:true,assignTasks:p.role==='manager',approveTasks:true,viewReports:p.role==='manager',viewFinance:false,managePeople:p.role==='manager'};return p.permissions?.[key]??defaults[key];}
 export function localParts(instant: string, timezone: string) { const p = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(instant)); const get = (t: string) => p.find(x => x.type === t)?.value || ''; return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${get('hour')}:${get('minute')}` }; }
 export function relativeDue(s: State, event: string, days: number, business: boolean) { let date = localParts(event, s.org.timezone).date; let d = new Date(date + 'T12:00:00Z'); let n = 0; while (n < days) {
     d.setUTCDate(d.getUTCDate() + 1);
     const v = d.toISOString().slice(0, 10);
-    if (!business || (s.org.workdays.includes(d.getUTCDay()) && !s.org.holidays.includes(v)))
+    if (!business || (isBusinessDay(s,v)))
         n++;
 } return d.toISOString().slice(0, 10); }
 export function moveTask(s: State, t: Task, stageId: string, p: Person, event = now()) {

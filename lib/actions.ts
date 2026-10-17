@@ -1,3 +1,4 @@
+import {feedDates} from './holidays';
 import {structureAction,updatePersonPlacement,ensureStructure} from './organization';
 import {professionalRoles,permissionLabels,catalogTypes} from './catalog';
 import {adminEmail} from './auth';
@@ -467,12 +468,13 @@ export async function action(c: Context, a: string, d: any) {
                 s.org.timezone = d.timezone;
             }
             if (d.workdays) {
-                if (!Array.isArray(d.workdays) || !d.workdays.length || !d.workdays.every((n: any) => Number.isInteger(n) && n >= 0 && n <= 6))
-                    fail(400, 'Dias úteis inválidos.');
+                if (!Array.isArray(d.workdays) || !d.workdays.length || !d.workdays.every((n: any) => Number.isInteger(n) && n >= 1 && n <= 5))
+                    fail(400, 'Selecione apenas dias de segunda a sexta. Sábados e domingos nunca são dias úteis.');
                 s.org.workdays = Array.from(new Set(d.workdays));
             }
-            if (d.holidays)
-                s.org.holidays = d.holidays.map(dateInput);
+            if(d.holidayIncludeOptional!==undefined&&s.org.holidayFeed)s.org.holidayFeed.includeOptional=!!d.holidayIncludeOptional;
+            if(d.holidays){if(!Array.isArray(d.holidays)||d.holidays.length>1000)fail(400,'Feriados inválidos.');s.org.manualHolidays=[...new Set<string>(d.holidays.map(dateInput))];}
+            if(d.holidays||d.holidayIncludeOptional!==undefined)s.org.holidays=[...new Set([...(s.org.manualHolidays||s.org.holidays.filter(v=>!feedDates(s.org.holidayFeed).includes(v))),...feedDates(s.org.holidayFeed)])].sort();
             if (d.hours !== undefined)
                 s.org.hours = numberInput(d.hours, 1, 24);
             if (d.onboarding !== undefined)

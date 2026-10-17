@@ -13,7 +13,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/domain.test.cjs tests/webhooks.test.cjs tests/identity.test.cjs tests/provider-token.test.cjs tests/social-identity.test.cjs tests/calendar.test.cjs",
+    "test": "node --test tests/domain.test.cjs tests/webhooks.test.cjs tests/identity.test.cjs tests/provider-token.test.cjs tests/social-identity.test.cjs tests/calendar.test.cjs tests/holidays.test.cjs",
     "test:integration": "node tests/integration.mjs",
     "test:auth": "node tests/auth-integration.mjs",
     "test:plan": "node tests/approved-plan.mjs"
