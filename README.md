@@ -1,3 +1,5 @@
+> **Versão em revisão local — plano aprovado em 17/10/2026.** Branch feature/plano-aprovado. Publicação depende de aprovação da versão de teste. Consulte [plano](docs/PLANO-APROVADO.md) e [Google, Apple e Calendar](docs/GOOGLE-APPLE-CALENDAR.md).
+
 > Atualização de acesso: somente e-mail e senha, mediante aprovação do administrador. Google e login social geral desativados. Para a primeira senha do proprietário, veja docs/ACESSO-E-IDENTIDADE.md.
 
 # Vamo — gestão de trabalho
@@ -33,6 +35,6 @@ React 19, TypeScript, Vinext/App Router, Cloudflare Workers, D1/SQLite e R2. Ide
 
 ## Configuração ainda necessária
 
-A audiência de hospedagem encontrada nesta revisão é pública e foi preservada. Dados internos exigem login e aprovação no servidor. As rotas de login Google e de login social geral estão desativadas. E-mail, WhatsApp e IA não estão conectados: exigem adaptadores e credenciais, sem envios simulados. Webhooks exigem domínio permitido no servidor e configuração de agenda para tentativas sem tráfego. Consulte a lista completa de pendências antes de utilizar com dados reais.
+A audiência de hospedagem encontrada nesta revisão é pública e foi preservada. Dados internos exigem login e aprovação no servidor. Google e Apple estão preparados e ficam indisponíveis enquanto faltarem credenciais. E-mail, WhatsApp e IA não estão conectados: exigem adaptadores e credenciais, sem envios simulados. Webhooks exigem domínio permitido no servidor e configuração de agenda para tentativas sem tráfego. Consulte a lista completa de pendências antes de utilizar com dados reais.
 
 Nenhuma senha fixa, credencial de provedor, cobrança, assinatura ou limite comercial está incluído. Dados de runtime e arquivos enviados não são versionados.

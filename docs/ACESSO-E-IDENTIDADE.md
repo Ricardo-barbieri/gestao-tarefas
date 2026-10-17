@@ -1,3 +1,5 @@
+> A revisão local do plano aprovado acrescenta login Google e Apple, vinculação e ativação por link. Consulte GOOGLE-APPLE-CALENDAR.md. A produção permanece na versão anterior até aprovação.
+
 # Acesso por e-mail e senha
 
 A página de acesso oferece somente e-mail e senha, com cadastro gratuito sujeito à aprovação do administrador principal. Google e o login geral com ChatGPT estão desativados, inclusive suas rotas de autenticação. A identidade da plataforma não autentica automaticamente o workspace.

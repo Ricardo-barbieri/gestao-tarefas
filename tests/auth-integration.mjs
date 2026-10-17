@@ -32,6 +32,6 @@ out=await call('/api/auth/login',{body:{email,password:next}});ok(out.r.status==
 out=await call('/api/auth/logout',{cookie:memberCookie,method:'POST'});ok(out.r.status===200,'Logout encerra a sessão no servidor');
 out=await call('/api/state',{cookie:memberCookie});ok(out.r.status===401,'Cookie revogado não recupera acesso');
 out=await call('/api/auth/register',{body:{email:'ataque@example.com',name:'Origem indevida',password},origin:'https://outro.example.com'});ok(out.r.status===403,'Cadastro e login recusam origem externa');
-out=await call('/api/auth/google');ok(out.r.status===410,'Rota Google está desativada no servidor');
-out=await call('/api/auth/google/callback?code=falso&state=falso');ok(out.r.status===410,'Callback Google também está desativado');
+out=await call('/api/auth/google');ok(out.r.status===503,'Google sem credenciais não inicia login nem simula sucesso');
+out=await call('/api/auth/google/callback?code=falso&state=falso');ok(out.r.status===303&&out.r.headers.get('location').includes('access_error'),'Callback sem configuração informa falha segura');
 console.log(`\n${checks} verificações de acesso passaram.`);

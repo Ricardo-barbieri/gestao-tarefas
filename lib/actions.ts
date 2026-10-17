@@ -1,8 +1,9 @@
+import {professionalRoles,permissionLabels,catalogTypes} from './catalog';
 import {adminEmail} from './auth';
 import { Context, admin, manager, taskAccess, boardAccess, fail, textInput, numberInput, dateInput, emailInput, audit, link, hash } from './server';
 import { validWebhookUrl, allowedWebhookUrl } from './webhooks';
 import { database } from './server';
-import { uid, now, log, newTask, moveTask, isDelivered, canBoard, relativeDue, Task, FormDef, Board } from './model';
+import { uid, now, log, hasPermission, newTask, moveTask, isDelivered, canBoard, relativeDue, Task, FormDef, Board } from './model';
 const choices = (v: any, allowed: string[]) => { if (!allowed.includes(v))
     fail(400, 'Opção inválida.'); return v; };
 export async function action(c: Context, a: string, d: any) {
@@ -16,6 +17,7 @@ export async function action(c: Context, a: string, d: any) {
     }
     switch (a) {
         case 'createTask': {
+            if(!hasPermission(p,'createTasks'))fail(403,'Seu perfil não permite criar tarefas.');
             const b = boardAccess(c, d.boardId);
             const title = textInput(d.title, 300).trim();
             if (!title)
@@ -31,9 +33,9 @@ export async function action(c: Context, a: string, d: any) {
         }
         case 'updateTask': {
             const t = taskAccess(c, d.id, true);
-            const fields = d.fields || {};
+            const fields = d.fields || {};if('assignee' in fields&&!hasPermission(p,'assignTasks')&&fields.assignee!==p.id)fail(403,'Seu perfil não permite atribuir tarefas a outras pessoas.');
             for (const [k, v] of Object.entries(fields)) {
-                if (['title', 'description'].includes(k)) {
+                if(k==='meetingDate')t.meetingDate=dateInput(v);else if(k==='meetingTime'){if(typeof v!=='string'||v!==''&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))fail(400,'Horário inválido.');t.meetingTime=v as string;}else if(k==='meetingDuration')t.meetingDuration=numberInput(v,5,1440);else if (['title', 'description'].includes(k)) {
                     const val = textInput(v, k === 'title' ? 300 : 30000);
                     if (k === 'title' && !val.trim())
                         fail(400, 'Informe um título.');
@@ -75,7 +77,7 @@ export async function action(c: Context, a: string, d: any) {
                     for (const [id, value] of Object.entries(v as any)) {
                         const def = s.customFields.find(f => f.id === id);
                         if (!def)
-                            fail(400, 'Campo inexistente.');
+                            fail(400, 'Campo inexistente.');if(def!.type==='currency'&&!hasPermission(p,'viewFinance'))fail(403,'Sem acesso a informações financeiras.');
                         if (['rating', 'nps', 'number', 'currency'].includes(def!.type))
                             t.fields[id] = numberInput(value, def!.type === 'nps' ? 0 : def!.min, def!.type === 'nps' ? 10 : def!.max);
                         else
@@ -108,7 +110,7 @@ export async function action(c: Context, a: string, d: any) {
             t.followers = t.followers.includes(p.id) ? t.followers.filter(x => x !== p.id) : [...t.followers, p.id];
             break;
         }
-        case 'createSubtask': {
+        case 'createSubtask': {if(!hasPermission(p,'createTasks'))fail(403,'Sem permissão para criar tarefas.');
             const t = taskAccess(c, d.id, true);
             const title = textInput(d.title, 300).trim();
             if (!title)
@@ -175,7 +177,7 @@ export async function action(c: Context, a: string, d: any) {
             t.history.push(log(p.id, t.archived ? 'Arquivada' : 'Restaurada', ''));
             break;
         }
-        case 'duplicateTask': {
+        case 'duplicateTask': {if(!hasPermission(p,'createTasks'))fail(403,'Sem permissão para criar tarefas.');
             const t = taskAccess(c, d.id);
             const copy = newTask(s, p.id, { title: t.title + ' (cópia)', description: t.description, boardId: t.boardId, typeId: t.typeId, typeSnapshot: t.typeSnapshot, estimate: t.estimate, tags: [...t.tags], projectId: t.projectId, clientId: t.clientId });
             s.tasks.push(copy);
@@ -269,6 +271,7 @@ export async function action(c: Context, a: string, d: any) {
             break;
         }
         case 'requestApproval': {
+            if(!hasPermission(p,'approveTasks'))fail(403,'Sem permissão para solicitar aprovações.');
             const t = taskAccess(c, d.id, true);
             const f = t.attachments.find(x => x.id === d.attachmentId);
             if (!f)
@@ -282,7 +285,8 @@ export async function action(c: Context, a: string, d: any) {
             break;
         }
         case 'decideApproval': {
-            const t = taskAccess(c, d.id, true);
+            if(!hasPermission(p,'approveTasks'))fail(403,'Sem permissão para aprovar entregas.');
+            const t = taskAccess(c,d.id);if(isDelivered(s,t))fail(409,'Tarefa já entregue.');
             const ap = t.approvals.find(x => x.id === d.approvalId);
             if (!ap || ap.status !== 'pending')
                 fail(409, 'Aprovação não está pendente.');
@@ -390,9 +394,12 @@ export async function action(c: Context, a: string, d: any) {
             b.stages = [...stages.filter((x: any) => x.kind !== 'delivery'), ...stages.filter((x: any) => x.kind === 'delivery')];
             break;
         }
+        case 'renameJobTitle': {admin(c);const from=textInput(d.from,100),name=textInput(d.name,100).trim();s.jobTitles ||= [...professionalRoles];if(!s.jobTitles.includes(from)||!name)fail(400,'Escolha uma função existente e informe o novo nome.');if(s.jobTitles.some(v=>v!==from&&v.toLowerCase()===name.toLowerCase()))fail(409,'Essa função já existe.');s.jobTitles=s.jobTitles.map(v=>v===from?name:v);for(const person of s.people)if(person.jobTitle===from)person.jobTitle=name;for(const type of s.types)if(type.jobTitles)type.jobTitles=type.jobTitles.map(v=>v===from?name:v);break;}
+        case 'saveJobTitle': {admin(c);const name=textInput(d.name,100).trim();if(!name)fail(400,'Informe a função profissional.');s.jobTitles ||= [...professionalRoles];if(!s.jobTitles.some(v=>v.toLowerCase()===name.toLowerCase()))s.jobTitles.push(name);break;}
+        case 'installCatalog': {admin(c);for(const type of catalogTypes())if(!s.types.some(t=>t.id===type.id||t.name===type.name))s.types.push(type);break;}
         case 'saveType': {
             manager(c);
-            const ty = { id: d.id || uid(), name: textInput(d.name, 100), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#e47251', description: textInput(d.description || '', 2000), estimate: numberInput(d.estimate), active: d.active !== false };
+            if(d.jobTitles&&(!Array.isArray(d.jobTitles)||d.jobTitles.some((v:string)=>!(s.jobTitles||professionalRoles).includes(v))))fail(400,'Função profissional inválida.');const ty = {jobTitles:d.jobTitles||[],area:textInput(d.area||'Geral',100), id: d.id || uid(), name: textInput(d.name, 100), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#e47251', description: textInput(d.description || '', 2000), estimate: numberInput(d.estimate), active: d.active !== false };
             const i = s.types.findIndex(x => x.id === ty.id);
             if (i < 0)
                 s.types.push(ty);
@@ -401,7 +408,7 @@ export async function action(c: Context, a: string, d: any) {
             break;
         }
         case 'saveProject': {
-            manager(c);
+            manager(c);if(d.id){const project=s.projects.find(x=>x.id===d.id);if(!project)fail(404,'Projeto inexistente.');if(p.role!=='admin'&&project!.manager!==p.id)fail(403,'Edite somente projetos sob sua gestão.');project!.name=textInput(d.name,200);project!.description=textInput(d.description||'',5000);if(d.manager){if(!s.people.some(p=>p.id===d.manager&&p.active!==false))fail(400,'Responsável inválido.');project!.manager=d.manager;}project!.end=dateInput(d.end||'');break;}
             if (d.clientId && !s.clients.some(x => x.id === d.clientId))
                 fail(400, 'Cliente inválido.');
             s.projects.push({ id: uid(), name: textInput(d.name, 200), description: textInput(d.description || '', 5000), clientId: d.clientId || '', manager: p.id, status: 'Em andamento', start: dateInput(d.start || ''), end: dateInput(d.end || ''), budgetCents: p.role === 'admin' ? Math.round(numberInput(d.budget || 0) * 100) : 0 });
@@ -418,10 +425,14 @@ export async function action(c: Context, a: string, d: any) {
             break;
         }
         case 'updatePerson': {
-            admin(c);
+            if(!hasPermission(p,'managePeople'))fail(403,'Sem permissão para gerenciar pessoas.');
             const person = s.people.find(x => x.id === d.id);
             if (!person)
                 fail(404, 'Pessoa inexistente.');
+            if(p.role!=='admin'){if(person!.id===p.id||person!.role!=='member'||!person!.teams.some(t=>p.teams.includes(t)))fail(403,'Gerencie somente colaboradores das suas equipes.');if(d.role&&d.role!=='member'||d.permissions||d.allowedBoards||d.deniedBoards||d.hourlyCents!==undefined)fail(403,'Somente administradores alteram permissões e custos.');if(d.teams?.some((t:string)=>!p.teams.includes(t)))fail(403,'Escolha apenas suas equipes.');}
+            if(d.jobTitle!==undefined){if(d.jobTitle&&!(s.jobTitles||professionalRoles).includes(d.jobTitle))fail(400,'Função profissional inválida.');person!.jobTitle=d.jobTitle;}
+            if(d.permissions!==undefined){if(!d.permissions||typeof d.permissions!=='object'||Array.isArray(d.permissions)||Object.entries(d.permissions).some(([k,v])=>!(k in permissionLabels)||typeof v!=='boolean'))fail(400,'Permissões inválidas.');person!.permissions=d.permissions;}
+            for(const key of ['allowedBoards','deniedBoards'] as const)if(d[key]!==undefined){if(!Array.isArray(d[key])||d[key].some((id:string)=>!s.boards.some(b=>b.id===id)))fail(400,'Quadro inválido.');person![key]=d[key];}
             if (d.role !== undefined || d.active !== undefined) {
                 const role = d.role !== undefined ? choices(d.role, ['admin', 'manager', 'member']) : person!.role;
                 if(person!.email.toLowerCase()===adminEmail()&&(d.active===false||(d.role!==undefined&&d.role!=='admin')))fail(409,'O administrador principal deve permanecer ativo com perfil de administrador.');
@@ -535,7 +546,7 @@ export async function action(c: Context, a: string, d: any) {
             break;
         }
         case 'dashboard': {
-            s.dashboards[p.id] = (d.cards || []).map((x: any) => choices(x, ['open', 'late', 'hours', 'approved', 'external', 'done']));
+            if(!Array.isArray(d.cards)||new Set(d.cards).size!==d.cards.length||d.cards.length>6)fail(400,'Selecione indicadores diferentes.');s.dashboards[p.id] = (d.cards || []).map((x: any) => choices(x, ['open', 'late', 'hours', 'approved', 'external', 'done']));
             break;
         }
         case 'readNotification': {
@@ -552,7 +563,7 @@ export async function action(c: Context, a: string, d: any) {
         case 'invite': {
             admin(c);
             const email = emailInput(d.email), id = uid(), token = uid() + uid();
-            const invite = { id, email, role: choices(d.role || 'member', ['admin', 'manager', 'member']), teams: (d.teams || []).filter((x: string) => s.teams.some(t => t.id === x)), expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(), hash: await hash(token), used: false };
+            const invite = {name:textInput(d.name||'',200),jobTitle:textInput(d.jobTitle||'',100), id, email, role: choices(d.role || 'member', ['admin', 'manager', 'member']), teams: (d.teams || []).filter((x: string) => s.teams.some(t => t.id === x)), expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(), hash: await hash(token), used: false };
             s.invites.push(invite);
             out = { token, orgId: c.orgId, email, delivery: 'Envio de e-mail não configurado. Convite disponível para cópia manual.' };
             break;
