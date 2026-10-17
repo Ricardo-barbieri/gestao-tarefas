@@ -30,6 +30,8 @@ export async function context(orgId?: string) {
     const p = s.people.find(x => x.id === u.userId);
     if (!p || p.active === false)
         fail(403, 'Vínculo inativo.');
+    const names=await db.prepare('SELECT a.user_id,a.name FROM auth_accounts a JOIN memberships m ON m.user_id=a.user_id WHERE m.org_id=?').bind(row.id).all<{user_id:string;name:string}>();
+    for(const account of names.results){const person=s.people.find(x=>x.id===account.user_id);if(person)person.name=account.name;}
     p!.role = membership.role;
     return { s, p: p!, orgId: row.id, revision: row.revision, u };
 }
