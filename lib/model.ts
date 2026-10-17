@@ -1,8 +1,12 @@
+import type {CompanyStructure} from './organization';
 import {catalogTypes} from './catalog';
 export type Role = 'admin' | 'manager' | 'member';
 export type Person = {
     active?: boolean;
     jobTitle?: string;
+    departmentId?:string;
+    positionId?:string;
+    functionIds?:string[];
     permissions?: Partial<Record<'createTasks'|'editTasks'|'assignTasks'|'approveTasks'|'viewReports'|'viewFinance'|'managePeople',boolean>>;
     allowedBoards?: string[];
     deniedBoards?: string[];
@@ -207,6 +211,7 @@ export type State = {
         help: boolean;
     };
     jobTitles?:string[];
+    structure?:CompanyStructure;
     people: Person[];
     teams: {
         id: string;
@@ -216,6 +221,7 @@ export type State = {
     tasks: Task[];
     types: {
         jobTitles?:string[];
+        positionIds?:string[];
         area?: string;
         id: string;
         name: string;

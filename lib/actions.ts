@@ -1,3 +1,4 @@
+import {structureAction,updatePersonPlacement,ensureStructure} from './organization';
 import {professionalRoles,permissionLabels,catalogTypes} from './catalog';
 import {adminEmail} from './auth';
 import { Context, admin, manager, taskAccess, boardAccess, fail, textInput, numberInput, dateInput, emailInput, audit, link, hash } from './server';
@@ -394,12 +395,12 @@ export async function action(c: Context, a: string, d: any) {
             b.stages = [...stages.filter((x: any) => x.kind !== 'delivery'), ...stages.filter((x: any) => x.kind === 'delivery')];
             break;
         }
-        case 'renameJobTitle': {admin(c);const from=textInput(d.from,100),name=textInput(d.name,100).trim();s.jobTitles ||= [...professionalRoles];if(!s.jobTitles.includes(from)||!name)fail(400,'Escolha uma função existente e informe o novo nome.');if(s.jobTitles.some(v=>v!==from&&v.toLowerCase()===name.toLowerCase()))fail(409,'Essa função já existe.');s.jobTitles=s.jobTitles.map(v=>v===from?name:v);for(const person of s.people)if(person.jobTitle===from)person.jobTitle=name;for(const type of s.types)if(type.jobTitles)type.jobTitles=type.jobTitles.map(v=>v===from?name:v);break;}
-        case 'saveJobTitle': {admin(c);const name=textInput(d.name,100).trim();if(!name)fail(400,'Informe a função profissional.');s.jobTitles ||= [...professionalRoles];if(!s.jobTitles.some(v=>v.toLowerCase()===name.toLowerCase()))s.jobTitles.push(name);break;}
+        case 'saveDepartment':case 'savePosition':case 'saveDepartmentFunction':case 'setStructureActive':{admin(c);out=structureAction(s,a,d);break;}
+        case 'renameJobTitle':case 'saveJobTitle':fail(410,'Gerencie departamentos, cargos e funções em Estrutura da empresa.');
         case 'installCatalog': {admin(c);for(const type of catalogTypes())if(!s.types.some(t=>t.id===type.id||t.name===type.name))s.types.push(type);break;}
         case 'saveType': {
             manager(c);
-            if(d.jobTitles&&(!Array.isArray(d.jobTitles)||d.jobTitles.some((v:string)=>!(s.jobTitles||professionalRoles).includes(v))))fail(400,'Função profissional inválida.');const ty = {jobTitles:d.jobTitles||[],area:textInput(d.area||'Geral',100), id: d.id || uid(), name: textInput(d.name, 100), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#e47251', description: textInput(d.description || '', 2000), estimate: numberInput(d.estimate), active: d.active !== false };
+            const structure=ensureStructure(s);if(d.positionIds&&(!Array.isArray(d.positionIds)||d.positionIds.some((id:string)=>!structure.positions.some(p=>p.id===id&&p.active))))fail(400,'Cargo inválido.');if(d.jobTitles&&(!Array.isArray(d.jobTitles)||d.jobTitles.some((v:string)=>![...(s.jobTitles||professionalRoles),...structure.positions.map(p=>p.name)].includes(v))))fail(400,'Função profissional inválida.');const ty = {positionIds:d.positionIds||[],jobTitles:d.jobTitles||[],area:textInput(d.area||'Geral',100), id: d.id || uid(), name: textInput(d.name, 100), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#e47251', description: textInput(d.description || '', 2000), estimate: numberInput(d.estimate), active: d.active !== false };
             const i = s.types.findIndex(x => x.id === ty.id);
             if (i < 0)
                 s.types.push(ty);
@@ -430,7 +431,7 @@ export async function action(c: Context, a: string, d: any) {
             if (!person)
                 fail(404, 'Pessoa inexistente.');
             if(p.role!=='admin'){if(person!.id===p.id||person!.role!=='member'||!person!.teams.some(t=>p.teams.includes(t)))fail(403,'Gerencie somente colaboradores das suas equipes.');if(d.role&&d.role!=='member'||d.permissions||d.allowedBoards||d.deniedBoards||d.hourlyCents!==undefined)fail(403,'Somente administradores alteram permissões e custos.');if(d.teams?.some((t:string)=>!p.teams.includes(t)))fail(403,'Escolha apenas suas equipes.');}
-            if(d.jobTitle!==undefined){if(d.jobTitle&&!(s.jobTitles||professionalRoles).includes(d.jobTitle))fail(400,'Função profissional inválida.');person!.jobTitle=d.jobTitle;}
+            updatePersonPlacement(s,person!,d);
             if(d.permissions!==undefined){if(!d.permissions||typeof d.permissions!=='object'||Array.isArray(d.permissions)||Object.entries(d.permissions).some(([k,v])=>!(k in permissionLabels)||typeof v!=='boolean'))fail(400,'Permissões inválidas.');person!.permissions=d.permissions;}
             for(const key of ['allowedBoards','deniedBoards'] as const)if(d[key]!==undefined){if(!Array.isArray(d[key])||d[key].some((id:string)=>!s.boards.some(b=>b.id===id)))fail(400,'Quadro inválido.');person![key]=d[key];}
             if (d.role !== undefined || d.active !== undefined) {

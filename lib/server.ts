@@ -1,3 +1,4 @@
+import {ensureStructure,StructureError} from './organization';
 import {catalogTypes,professionalRoles} from './catalog';
 import { env } from 'cloudflare:workers';
 import {getApplicationUser,adminEmail,AuthError} from './auth';
@@ -28,6 +29,7 @@ export async function context(orgId?: string) {
     if (!row)
         fail(404, 'Empresa não encontrada.');
     const s: State = JSON.parse(row.state);s.jobTitles ||= [...professionalRoles];for(const type of catalogTypes())if(!s.types.some(t=>t.id===type.id||t.name===type.name))s.types.push(type);
+    ensureStructure(s);
     const p = s.people.find(x => x.id === u.userId);
     if (!p || p.active === false)
         fail(403, 'Vínculo inativo.');
@@ -76,7 +78,7 @@ catch {
 } }
 export function sameOrigin(req: Request) { const o = req.headers.get('origin'); if (o && o !== new URL(req.url).origin)
     fail(403, 'Origem não autorizada.'); }
-export function errorResponse(e: any) { const status = (e instanceof HttpError||e instanceof AuthError) ? e.status : 400; return Response.json({ error: status >= 500 ? 'Não foi possível concluir a operação.' : e.message || 'Operação inválida.' }, { status }); }
+export function errorResponse(e: any) { const status = (e instanceof HttpError||e instanceof AuthError||e instanceof StructureError) ? e.status : 400; return Response.json({ error: status >= 500 ? 'Não foi possível concluir a operação.' : e.message || 'Operação inválida.' }, { status }); }
 export async function limit(key: string, max = 30) { const bucket = Math.floor(Date.now() / 60000); const id = key + ':' + bucket; const r: any = await database().prepare('INSERT INTO rate_limits (id,count,expires) VALUES (?,1,?) ON CONFLICT(id) DO UPDATE SET count=count+1 RETURNING count').bind(id, bucket + 2).first(); if (r.count > max)
     fail(429, 'Muitas tentativas. Aguarde um minuto.'); if (Math.random() < .02)
     await database().prepare('DELETE FROM rate_limits WHERE expires < ?').bind(bucket).run(); }
